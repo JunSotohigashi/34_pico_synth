@@ -50,7 +50,8 @@ pico_enable_stdio_usb(pico-synth-test 1)
 
 # Add the standard library to the build
 target_link_libraries(pico-synth-test
-        pico_stdlib)
+        pico_stdlib
+        pico_multicore)
 
 # Add the standard include files to the build
 target_include_directories(pico-synth-test PRIVATE
@@ -60,6 +61,7 @@ target_include_directories(pico-synth-test PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(pico-synth-test 
+        hardware_pwm
         hardware_spi
         hardware_timer
         )
