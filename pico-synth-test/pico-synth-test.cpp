@@ -4,8 +4,7 @@
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
 #include "hardware/pwm.h"
-#include "table_wave.h"
-#include "table_freq.h"
+#include "oscillator.hpp"
 
 // 定数宣言
 #define PIN_LED 25
@@ -30,9 +29,9 @@ int main()
     gpio_set_dir(PIN_LED, GPIO_OUT);
 
     // 出力音声のバッファー
-    queue_init(&sound_buffer, sizeof(int16_t), 8);
+    queue_init(&sound_buffer, sizeof(int16_t), 256);
 
-    // PWM音声出力 約60kHz
+    // PWM音声出力 約61kHz
     gpio_init(PIN_OUT);
     gpio_set_dir(PIN_OUT, GPIO_OUT);
     gpio_set_function(PIN_OUT, GPIO_FUNC_PWM);
@@ -50,6 +49,9 @@ int main()
 // Core0のメイン関数
 void main_core0()
 {
+    Oscillator osc1;
+    Oscillator osc2;
+
     while (true)
     {
         static uint8_t note = 0;
@@ -63,54 +65,43 @@ void main_core0()
             note &= 0b1111111;
             if (note == 0)
             {
-                wave = (wave + 1) % 3;
+                wave = (wave + 1) % 5;
+                switch (wave)
+                {
+                case 0:
+                    osc1.set_wave_type(WaveType::Saw);
+                    osc2.set_wave_type(WaveType::Saw);
+                    break;
+                case 1:
+                    osc1.set_wave_type(WaveType::Sine);
+                    osc2.set_wave_type(WaveType::Sine);
+                    break;
+                case 2:
+                    osc1.set_wave_type(WaveType::Triangle);
+                    osc2.set_wave_type(WaveType::Triangle);
+                    break;
+                case 3:
+                    osc1.set_wave_type(WaveType::Square);
+                    osc2.set_wave_type(WaveType::Square);
+                    osc1.set_duty(32768);
+                    osc2.set_duty(32768);
+                    break;
+                case 4:
+                    osc1.set_wave_type(WaveType::Square);
+                    osc2.set_wave_type(WaveType::Square);
+                    osc1.set_duty(1024);
+                    osc2.set_duty(1024);
+                    break;
+                default:
+                    break;
+                }
             }
+            osc1.set_freq_note_number(note);
+            osc2.set_freq_note_number((note+4)%128);
         }
-
-        static const int16_t *wave_table[3] = {wave_saw, wave_sine, wave_triangle};
-
-        static uint16_t phase16_1 = 0;
-        phase16_1 += note_phase16_delta[note];
-        uint8_t phase8_1 = phase16_1 >> 8;
-        int16_t out_level_1 = wave_table[wave][phase8_1] / 8;
-
-        static uint16_t phase16_2 = 0;
-        phase16_2 += note_phase16_delta[(note + 3) % 128];
-        uint8_t phase8_2 = phase16_2 >> 8;
-        int16_t out_level_2 = wave_table[wave][phase8_2] / 8;
-
-        static uint16_t phase16_3 = 0;
-        phase16_3 += note_phase16_delta[(note + 5) % 128];
-        uint8_t phase8_3 = phase16_3 >> 8;
-        int16_t out_level_3 = wave_table[wave][phase8_3] / 8;
-
-        static uint16_t phase16_4 = 0;
-        phase16_4 += note_phase16_delta[(note + 7) % 128];
-        uint8_t phase8_4 = phase16_4 >> 8;
-        int16_t out_level_4 = wave_table[wave][phase8_4] / 8;
-
-        static uint16_t phase16_5 = 0;
-        phase16_5 += note_phase16_delta[(note + 10) % 128];
-        uint8_t phase8_5 = phase16_5 >> 8;
-        int16_t out_level_5 = wave_table[wave][phase8_5] / 8;
-
-        static uint16_t phase16_6 = 0;
-        phase16_6 += note_phase16_delta[(note + 14) % 128];
-        uint8_t phase8_6 = phase16_6 >> 8;
-        int16_t out_level_6 = wave_table[wave][phase8_6] / 8;
-
-        static uint16_t phase16_7 = 0;
-        phase16_7 += note_phase16_delta[(note + 17) % 128];
-        uint8_t phase8_7 = phase16_7 >> 8;
-        int16_t out_level_7 = wave_table[wave][phase8_7] / 8;
-
-        static uint16_t phase16_8 = 0;
-        phase16_8 += note_phase16_delta[(note + 22) % 128];
-        uint8_t phase8_8 = phase16_8 >> 8;
-        int16_t out_level_8 = wave_table[wave][phase8_8] / 8;
-
-        int16_t out_level = out_level_1 + out_level_2 + out_level_3 + out_level_4 + out_level_5 + out_level_6 + out_level_7 + out_level_8;
-
+        int16_t out_level_1 = osc1.get_out_level() / 8;
+        int16_t out_level_2 = osc2.get_out_level() / 8;
+        int16_t out_level = out_level_1 + out_level_2;
         queue_add_blocking(&sound_buffer, &out_level);
     }
 }
