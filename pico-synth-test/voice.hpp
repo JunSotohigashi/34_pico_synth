@@ -11,6 +11,8 @@ class Voice
 public:
     Voice();
     int16_t get_value();
+    void gate_on();
+    void gate_off();
     void set_vco1_wave_type(WaveType wave_type);
     void set_vco2_wave_type(WaveType wave_type);
     void set_vco_freq(float freq);

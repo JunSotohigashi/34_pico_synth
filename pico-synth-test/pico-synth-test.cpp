@@ -11,10 +11,11 @@
 // 定数宣言
 #define PIN_OUT_L 14
 #define PIN_OUT_R 15
+#define PIN_BTN_1 12
+#define PIN_BTN_2 13
 
 // グローバル変数
-queue_t sound_buffer_L;
-queue_t sound_buffer_R;
+queue_t sound_buffer;
 
 // 関数プロトタイプ宣言
 int main();
@@ -31,9 +32,16 @@ int main()
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
+    // ボタン
+    gpio_init(PIN_BTN_1);
+    gpio_init(PIN_BTN_2);
+    gpio_set_dir(PIN_BTN_1, GPIO_IN);
+    gpio_set_dir(PIN_BTN_2, GPIO_IN);
+    gpio_set_pulls(PIN_BTN_1, true, false);
+    gpio_set_pulls(PIN_BTN_2, true, false);
+
     // 出力音声のバッファー
-    queue_init(&sound_buffer_L, sizeof(uint16_t), 16);
-    queue_init(&sound_buffer_R, sizeof(uint16_t), 16);
+    queue_init(&sound_buffer, sizeof(uint32_t), 16);
 
     // PWM音声出力 約61kHz
     gpio_init(PIN_OUT_L);
@@ -67,25 +75,62 @@ int main()
 // Core0のメイン関数
 void main_core0()
 {
-    Voice voice1;
-    Voice voice2;
-    voice1.set_vco1_wave_type(WaveType::Saw);
-    voice1.set_vco2_wave_type(WaveType::Saw);
-    voice2.set_vco1_wave_type(WaveType::Saw);
-    voice2.set_vco2_wave_type(WaveType::Saw);
-    voice1.set_vco_freq_note_number(48); // C3
-    voice2.set_vco_freq_note_number(55); // G3
+    uint8_t n_voice = 4;
+    Voice voice[n_voice];
+    for (uint8_t i = 0; i < n_voice; i++)
+    {
+        voice[i].set_vco1_wave_type(WaveType::Square);
+        voice[i].set_vco2_wave_type(WaveType::Square);
+    }
+
+    voice[0].set_vco_freq_note_number(48);
+    voice[1].set_vco_freq_note_number(52);
+    voice[2].set_vco_freq_note_number(55);
+    voice[3].set_vco_freq_note_number(58);
+
+    bool btn1_old = false;
+    bool btn2_old = false;
 
     while (true)
     {
+        bool btn1 = !gpio_get(PIN_BTN_1);
+        bool btn2 = !gpio_get(PIN_BTN_2);
+        if (!btn1_old && btn1)
+        {
+            voice[0].gate_on();
+            voice[1].gate_on();
+        }
+        if (!btn2_old && btn2)
+        {
+            voice[2].gate_on();
+            voice[3].gate_on();
+        }
+        if (btn1_old && !btn1)
+        {
+            voice[0].gate_off();
+            voice[1].gate_off();
+        }
+        if (btn2_old && !btn2)
+        {
+            voice[2].gate_off();
+            voice[3].gate_off();
+        }
+
+        btn1_old = btn1;
+        btn2_old = btn2;
+
         // get sound value
-        int16_t out_level_1 = mul_i16_q12(voice1.get_value(), 0x0400); // ×0.25
-        int16_t out_level_2 = mul_i16_q12(voice2.get_value(), 0x0400);
+        int16_t out_level = 0;
+        for (uint8_t i = 0; i < n_voice; i++)
+        {
+            out_level += mul_i16_q12(voice[i].get_value(), 0x0400);
+        }
         // convert int16 to uint11
-        uint16_t out_level_L = ((out_level_1 + out_level_2) >> 5) + 1024;
-        uint16_t out_level_R = ((out_level_1 + out_level_2) >> 5) + 1024;
-        queue_add_blocking(&sound_buffer_L, &out_level_L);
-        queue_add_blocking(&sound_buffer_R, &out_level_R);
+        uint16_t out_level_L = (out_level >> 5) + 1024;
+        uint16_t out_level_R = (out_level >> 5) + 1024;
+        // write to sound buffer
+        uint32_t out_level_LR = ((uint32_t)out_level_L << 16) | out_level_R;
+        queue_add_blocking(&sound_buffer, &out_level_LR);
     }
 }
 
@@ -101,22 +146,20 @@ void main_core1()
 bool timer_callback(repeating_timer_t *rt)
 {
     // 音声出力バッファが空
-    if (queue_is_empty(&sound_buffer_L) || queue_is_empty(&sound_buffer_R))
+    if (queue_is_empty(&sound_buffer))
     {
         gpio_put(PICO_DEFAULT_LED_PIN, true);
         return true;
     }
 
     // バッファからの取り出し
-    uint16_t out_level_L;
-    uint16_t out_level_R;
-    queue_try_remove(&sound_buffer_L, &out_level_L);
-    queue_try_remove(&sound_buffer_R, &out_level_R);
+    uint32_t out_level;
+    queue_try_remove(&sound_buffer, &out_level);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 
     // -32768~32767(int16) から PWMのデューティー 0~2047(uint11) へ変換
-    pwm_set_gpio_level(PIN_OUT_L, out_level_L);
-    pwm_set_gpio_level(PIN_OUT_R, out_level_R);
+    pwm_set_gpio_level(PIN_OUT_R, out_level & 0x7FF);
+    pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16) & 0x7FF);
 
     return true;
 }
