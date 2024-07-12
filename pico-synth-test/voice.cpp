@@ -14,12 +14,12 @@ Voice::Voice()
 int16_t Voice::get_value()
 {
     int16_t value1 = mul_i16_q12(vco1.get_value(), 0x0800);
-    // int16_t value2 = mul_i16_q12(vco2.get_value(), 0x0800);
+    int16_t value2 = mul_i16_q12(vco2.get_value(), 0x0800);
     value1 = mul_i16_q12(value1, vca_eg.get_value());
-    // value2 = mul_i16_q12(value2, vca_eg.get_value());
+    value2 = mul_i16_q12(value2, vca_eg.get_value());
 
-    // return value1 + value2;
-    return value1;
+    return value1 + value2;
+    // return value1;
 }
 
 void Voice::gate_on()

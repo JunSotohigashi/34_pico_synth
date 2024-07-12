@@ -75,7 +75,7 @@ int main()
 // Core0のメイン関数
 void main_core0()
 {
-    uint8_t n_voice = 4;
+    uint8_t n_voice = 2;
     Voice voice[n_voice];
     for (uint8_t i = 0; i < n_voice; i++)
     {
@@ -85,8 +85,6 @@ void main_core0()
 
     voice[0].set_vco_freq_note_number(48);
     voice[1].set_vco_freq_note_number(52);
-    voice[2].set_vco_freq_note_number(55);
-    voice[3].set_vco_freq_note_number(58);
 
     bool btn1_old = false;
     bool btn2_old = false;
@@ -98,22 +96,18 @@ void main_core0()
         if (!btn1_old && btn1)
         {
             voice[0].gate_on();
-            voice[1].gate_on();
         }
         if (!btn2_old && btn2)
         {
-            voice[2].gate_on();
-            voice[3].gate_on();
+            voice[1].gate_on();
         }
         if (btn1_old && !btn1)
         {
             voice[0].gate_off();
-            voice[1].gate_off();
         }
         if (btn2_old && !btn2)
         {
-            voice[2].gate_off();
-            voice[3].gate_off();
+            voice[1].gate_off();
         }
 
         btn1_old = btn1;
