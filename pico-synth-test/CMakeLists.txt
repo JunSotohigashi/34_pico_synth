@@ -39,7 +39,12 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(pico-synth-test pico-synth-test.cpp oscillator.cpp)
+add_executable(pico-synth-test
+        pico-synth-test.cpp
+        voice.cpp
+        oscillator.cpp
+        envelope_generator.cpp
+        fixed_point.cpp)
 
 pico_set_program_name(pico-synth-test "pico-synth-test")
 pico_set_program_version(pico-synth-test "0.1")

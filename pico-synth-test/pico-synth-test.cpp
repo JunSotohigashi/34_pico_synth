@@ -5,7 +5,8 @@
 #include "pico/multicore.h"
 #include "hardware/pwm.h"
 #include "hardware/interp.h"
-#include "oscillator.hpp"
+#include "voice.hpp"
+#include "fixed_point.hpp"
 
 // 定数宣言
 #define PIN_OUT_L 14
@@ -66,58 +67,21 @@ int main()
 // Core0のメイン関数
 void main_core0()
 {
-    Oscillator osc1;
-    Oscillator osc2;
+    Voice voice1;
+    Voice voice2;
+    voice1.set_vco1_wave_type(WaveType::Saw);
+    voice1.set_vco2_wave_type(WaveType::Saw);
+    voice2.set_vco1_wave_type(WaveType::Saw);
+    voice2.set_vco2_wave_type(WaveType::Saw);
+    voice1.set_vco_freq_note_number(48); // C3
+    voice2.set_vco_freq_note_number(55); // G3
 
     while (true)
     {
-        static uint8_t note = 0;
-        static uint16_t count = 0;
-        static uint8_t wave = 0;
-        count++;
-        if (count == 0x4000)
-        {
-            count = 0;
-            note++;
-            note &= 0b1111111;
-            if (note == 0)
-            {
-                wave = (wave + 1) % 5;
-                switch (wave)
-                {
-                case 0:
-                    osc1.set_wave_type(WaveType::Saw);
-                    osc2.set_wave_type(WaveType::Saw);
-                    break;
-                case 1:
-                    osc1.set_wave_type(WaveType::Sine);
-                    osc2.set_wave_type(WaveType::Sine);
-                    break;
-                case 2:
-                    osc1.set_wave_type(WaveType::Triangle);
-                    osc2.set_wave_type(WaveType::Triangle);
-                    break;
-                case 3:
-                    osc1.set_wave_type(WaveType::Square);
-                    osc2.set_wave_type(WaveType::Square);
-                    osc1.set_duty(32768);
-                    osc2.set_duty(32768);
-                    break;
-                case 4:
-                    osc1.set_wave_type(WaveType::Square);
-                    osc2.set_wave_type(WaveType::Square);
-                    osc1.set_duty(1024);
-                    osc2.set_duty(1024);
-                    break;
-                default:
-                    break;
-                }
-            }
-            osc1.set_freq_note_number(note);
-            osc2.set_freq_note_number((note + 4) % 128);
-        }
-        int16_t out_level_1 = osc1.get_out_level() / 8;
-        int16_t out_level_2 = osc2.get_out_level() / 8;
+        // get sound value
+        int16_t out_level_1 = mul_i16_q12(voice1.get_value(), 0x0400); // ×0.25
+        int16_t out_level_2 = mul_i16_q12(voice2.get_value(), 0x0400);
+        // convert int16 to uint11
         uint16_t out_level_L = ((out_level_1 + out_level_2) >> 5) + 1024;
         uint16_t out_level_R = ((out_level_1 + out_level_2) >> 5) + 1024;
         queue_add_blocking(&sound_buffer_L, &out_level_L);
@@ -133,6 +97,7 @@ void main_core1()
     add_repeating_timer_us(-25, &timer_callback, NULL, &timer);
 }
 
+// 40kHz周期で呼び出され, PWM音声出力を行う
 bool timer_callback(repeating_timer_t *rt)
 {
     // 音声出力バッファが空
