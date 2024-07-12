@@ -1,26 +1,31 @@
 #include "oscillator.hpp"
 #include "table_wave.h"
 #include "table_freq.h"
+#include "hardware/interp.h"
 
 int16_t Oscillator::get_out_level()
 {
-    // uint16_t phase16_old = this->phase16;
     this->phase16 += this->phase16_delta;
 
-    // if (this->phase16 < phase16_old)
-    //     this->wave_type_now = this->wave_type_next;
-    this->wave_type_now = this->wave_type_next;
-    
     switch (this->wave_type_now)
     {
     case WaveType::Saw:
-        return wave_saw[this->phase16 >> 8];
+        interp0->base[0] = wave_saw[this->phase16 >> 8];
+        interp0->base[1] = wave_saw[(this->phase16 + 1) >> 8];
+        interp0->accum[1] = this->phase16 & 0xFF;
+        return interp0->peek[1];
 
     case WaveType::Sine:
-        return wave_sine[this->phase16 >> 8];
+        interp0->base[0] = wave_sine[this->phase16 >> 8];
+        interp0->base[1] = wave_sine[(this->phase16 + 1) >> 8];
+        interp0->accum[1] = this->phase16 & 0xFF;
+        return interp0->peek[1];
 
     case WaveType::Triangle:
-        return wave_triangle[this->phase16 >> 8];
+        interp0->base[0] = wave_triangle[this->phase16 >> 8];
+        interp0->base[1] = wave_triangle[(this->phase16 + 1) >> 8];
+        interp0->accum[1] = this->phase16 & 0xFF;
+        return interp0->peek[1];
 
     case WaveType::Square:
         if (this->phase16 < this->duty)

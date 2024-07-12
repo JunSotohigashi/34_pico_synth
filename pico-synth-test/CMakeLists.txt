@@ -62,8 +62,7 @@ target_include_directories(pico-synth-test PRIVATE
 # Add any user requested libraries
 target_link_libraries(pico-synth-test 
         hardware_pwm
-        hardware_spi
-        hardware_timer
+        hardware_interp
         )
 
 pico_add_extra_outputs(pico-synth-test)

@@ -4,6 +4,7 @@
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
 #include "hardware/pwm.h"
+#include "hardware/interp.h"
 #include "oscillator.hpp"
 
 // 定数宣言
@@ -30,8 +31,8 @@ int main()
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
 
     // 出力音声のバッファー
-    queue_init(&sound_buffer_L, sizeof(int16_t), 16);
-    queue_init(&sound_buffer_R, sizeof(int16_t), 16);
+    queue_init(&sound_buffer_L, sizeof(uint16_t), 16);
+    queue_init(&sound_buffer_R, sizeof(uint16_t), 16);
 
     // PWM音声出力 約61kHz
     gpio_init(PIN_OUT_L);
@@ -49,6 +50,13 @@ int main()
     pwm_set_wrap(pwm_slice_L, 2048);
     pwm_set_wrap(pwm_slice_R, 2048);
     pwm_set_mask_enabled((1 << pwm_slice_L) | (1 << pwm_slice_R));
+
+    // interpolatorによる線形補間
+    interp_config interp_cfg = interp_default_config();
+    interp_config_set_blend(&interp_cfg, true);
+    interp_set_config(interp0, 0, &interp_cfg);
+    interp_cfg = interp_default_config();
+    interp_set_config(interp0, 1, &interp_cfg);
 
     // 処理開始
     multicore_launch_core1(main_core1);
@@ -110,8 +118,8 @@ void main_core0()
         }
         int16_t out_level_1 = osc1.get_out_level() / 8;
         int16_t out_level_2 = osc2.get_out_level() / 8;
-        int16_t out_level_L = out_level_1;
-        int16_t out_level_R = out_level_2;
+        uint16_t out_level_L = ((out_level_1 + out_level_2) >> 5) + 1024;
+        uint16_t out_level_R = ((out_level_1 + out_level_2) >> 5) + 1024;
         queue_add_blocking(&sound_buffer_L, &out_level_L);
         queue_add_blocking(&sound_buffer_R, &out_level_R);
     }
@@ -135,17 +143,15 @@ bool timer_callback(repeating_timer_t *rt)
     }
 
     // バッファからの取り出し
-    int16_t out_level_L;
-    int16_t out_level_R;
+    uint16_t out_level_L;
+    uint16_t out_level_R;
     queue_try_remove(&sound_buffer_L, &out_level_L);
     queue_try_remove(&sound_buffer_R, &out_level_R);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 
     // -32768~32767(int16) から PWMのデューティー 0~2047(uint11) へ変換
-    uint16_t out_duty_L = (out_level_L >> 5) + 1024;
-    uint16_t out_duty_R = (out_level_R >> 5) + 1024;
-    pwm_set_gpio_level(PIN_OUT_L, out_duty_L);
-    pwm_set_gpio_level(PIN_OUT_R, out_duty_R);
+    pwm_set_gpio_level(PIN_OUT_L, out_level_L);
+    pwm_set_gpio_level(PIN_OUT_R, out_level_R);
 
     return true;
 }
