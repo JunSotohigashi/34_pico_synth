@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "oscillator.hpp"
 #include "envelope_generator.hpp"
+#include "filter.hpp"
 
 // VCO,VCF,VCA,EGなどを内蔵した単一発音モジュール
 class Voice

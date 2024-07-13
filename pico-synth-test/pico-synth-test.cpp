@@ -79,8 +79,8 @@ void main_core0()
     Voice voice[n_voice];
     for (uint8_t i = 0; i < n_voice; i++)
     {
-        voice[i].set_vco1_wave_type(WaveType::Square);
-        voice[i].set_vco2_wave_type(WaveType::Square);
+        voice[i].set_vco1_wave_type(WaveType::Saw);
+        voice[i].set_vco2_wave_type(WaveType::Saw);
     }
 
     voice[0].set_vco_freq_note_number(48);
@@ -117,7 +117,7 @@ void main_core0()
         int16_t out_level = 0;
         for (uint8_t i = 0; i < n_voice; i++)
         {
-            out_level += mul_i16_q12(voice[i].get_value(), 0x0400);
+            out_level += mul_i16_q12(voice[i].get_value(), 0x0800);
         }
         // convert int16 to uint11
         uint16_t out_level_L = (out_level >> 5) + 1024;

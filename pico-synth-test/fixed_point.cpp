@@ -1,4 +1,5 @@
 #include "fixed_point.hpp"
+#include "hardware/divider.h"
 
 int16_t mul_i16_q12(int16_t x, uint16_t y)
 {
@@ -24,4 +25,11 @@ uint32_t mul_q28_q28(uint32_t x, uint32_t y)
     tmp *= y;
     tmp = tmp >> 28;
     return (uint32_t)tmp;
+}
+
+uint32_t div_q28_q28(uint32_t x, uint32_t y)
+{
+    hw_divider_wait_ready();
+    divmod_result_t result = hw_divider_divmod_u32(x, y);
+    return to_quotient_u32(result);
 }

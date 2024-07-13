@@ -44,6 +44,7 @@ add_executable(pico-synth-test
         voice.cpp
         oscillator.cpp
         envelope_generator.cpp
+        filter.cpp
         fixed_point.cpp)
 
 pico_set_program_name(pico-synth-test "pico-synth-test")
@@ -68,6 +69,7 @@ target_include_directories(pico-synth-test PRIVATE
 target_link_libraries(pico-synth-test 
         hardware_pwm
         hardware_interp
+        hardware_divider
         )
 
 pico_add_extra_outputs(pico-synth-test)
