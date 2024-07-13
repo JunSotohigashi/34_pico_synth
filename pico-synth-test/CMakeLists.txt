@@ -70,6 +70,7 @@ target_link_libraries(pico-synth-test
         hardware_pwm
         hardware_interp
         hardware_divider
+        hardware_adc
         )
 
 pico_add_extra_outputs(pico-synth-test)

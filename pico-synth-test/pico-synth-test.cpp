@@ -5,6 +5,7 @@
 #include "pico/multicore.h"
 #include "hardware/pwm.h"
 #include "hardware/interp.h"
+#include "hardware/adc.h"
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
@@ -13,6 +14,7 @@
 #define PIN_OUT_R 15
 #define PIN_BTN_1 12
 #define PIN_BTN_2 13
+#define PIN_VR_1 26
 
 // グローバル変数
 queue_t sound_buffer;
@@ -39,9 +41,12 @@ int main()
     gpio_set_dir(PIN_BTN_2, GPIO_IN);
     gpio_set_pulls(PIN_BTN_1, true, false);
     gpio_set_pulls(PIN_BTN_2, true, false);
+    adc_init();
+    adc_gpio_init(PIN_VR_1);
+    adc_select_input(0);
 
     // 出力音声のバッファー
-    queue_init(&sound_buffer, sizeof(uint32_t), 16);
+    queue_init(&sound_buffer, sizeof(uint32_t), 32);
 
     // PWM音声出力 約61kHz
     gpio_init(PIN_OUT_L);
@@ -54,8 +59,8 @@ int main()
     uint pwm_slice_R = pwm_gpio_to_slice_num(PIN_OUT_R);
     uint pwm_chan_L = pwm_gpio_to_channel(PIN_OUT_L);
     uint pwm_chan_R = pwm_gpio_to_channel(PIN_OUT_R);
-    pwm_set_clkdiv_int_frac(pwm_slice_L, 0b1, 0b0);
-    pwm_set_clkdiv_int_frac(pwm_slice_R, 0b1, 0b0);
+    pwm_set_clkdiv_int_frac(pwm_slice_L, 1, 0);
+    pwm_set_clkdiv_int_frac(pwm_slice_R, 1, 0);
     pwm_set_wrap(pwm_slice_L, 2048);
     pwm_set_wrap(pwm_slice_R, 2048);
     pwm_set_mask_enabled((1 << pwm_slice_L) | (1 << pwm_slice_R));
@@ -79,7 +84,7 @@ void main_core0()
     Voice voice[n_voice];
     for (uint8_t i = 0; i < n_voice; i++)
     {
-        voice[i].set_vco1_wave_type(WaveType::Saw);
+        voice[i].set_vco1_wave_type(WaveType::Square);
         voice[i].set_vco2_wave_type(WaveType::Saw);
     }
 
@@ -89,29 +94,44 @@ void main_core0()
     bool btn1_old = false;
     bool btn2_old = false;
 
+    uint16_t input_cycle = 0;
+
     while (true)
     {
-        bool btn1 = !gpio_get(PIN_BTN_1);
-        bool btn2 = !gpio_get(PIN_BTN_2);
-        if (!btn1_old && btn1)
+        if (input_cycle % 400 == 0)
         {
-            voice[0].gate_on();
-        }
-        if (!btn2_old && btn2)
-        {
-            voice[1].gate_on();
-        }
-        if (btn1_old && !btn1)
-        {
-            voice[0].gate_off();
-        }
-        if (btn2_old && !btn2)
-        {
-            voice[1].gate_off();
+            bool btn1 = !gpio_get(PIN_BTN_1);
+            bool btn2 = !gpio_get(PIN_BTN_2);
+            if (!btn1_old && btn1)
+            {
+                voice[0].gate_on();
+            }
+            if (!btn2_old && btn2)
+            {
+                voice[1].gate_on();
+            }
+            if (btn1_old && !btn1)
+            {
+                voice[0].gate_off();
+            }
+            if (btn2_old && !btn2)
+            {
+                voice[1].gate_off();
+            }
+
+            btn1_old = btn1;
+            btn2_old = btn2;
+
+            uint16_t vr1 = adc_read();
+            voice[0].set_vco_duty(vr1<<3);
         }
 
-        btn1_old = btn1;
-        btn2_old = btn2;
+        if (input_cycle == 0)
+        {
+            printf("Hello world!\n");
+        }
+
+        input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
         int16_t out_level = 0;
