@@ -39,19 +39,23 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(pico-synth-keyboard pico-synth-keyboard.c )
+add_executable(pico-synth-keyboard
+        pico-synth-keyboard.c
+        usb_descriptors.c)
 
 pico_set_program_name(pico-synth-keyboard "pico-synth-keyboard")
 pico_set_program_version(pico-synth-keyboard "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(pico-synth-keyboard 0)
-pico_enable_stdio_usb(pico-synth-keyboard 1)
+pico_enable_stdio_uart(pico-synth-keyboard 1)
+pico_enable_stdio_usb(pico-synth-keyboard 0)
 
 # Add the standard library to the build
 target_link_libraries(pico-synth-keyboard
         pico_stdlib
-        pico_multicore)
+        pico_multicore
+        tinyusb_device
+        tinyusb_board)
 
 # Add the standard include files to the build
 target_include_directories(pico-synth-keyboard PRIVATE

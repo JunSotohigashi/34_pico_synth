@@ -2,6 +2,8 @@
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
+#include "bsp/board.h"
+#include "tusb.h"
 
 // 定数宣言
 #define N_PIN_HIGH 12
@@ -25,13 +27,15 @@ void main_core0();
 void main_core1();
 void pin_init();
 void scan_keyboard(uint16_t results[N_PIN_HIGH]);
-bool timer_callback(repeating_timer_t *rt);
+void task_keyboard();
 
 // メイン関数
 int main()
 {
     // 初期化処理
     stdio_init_all();
+    board_init();
+    tusb_init();
     pin_init();
 
     // キーボードの押下情報を格納するキュー
@@ -47,30 +51,35 @@ void main_core0()
 {
     while (true)
     {
-        uint16_t event;
-        queue_remove_blocking(&key_event, &event);
-        uint8_t note_number = event >> 8;
-        uint8_t note_velocity = event & 0xFF;
-        printf("Note: %d, %d\n", note_number, note_velocity);
+        tud_task();
+        while (queue_get_level(&key_event))
+        {
+            uint16_t event;
+            queue_remove_blocking(&key_event, &event);
+            uint8_t note_number = event >> 8;
+            uint8_t note_velocity = event & 0xFF;
+            
+            uint8_t msg[3];
+            msg[0] = 0x90; // Note on - CH1
+            msg[1] = note_number;
+            msg[2] = note_velocity;
+            tud_midi_stream_write(0, msg, 3);
+        }
+        sleep_ms(1);
     }
 }
 
 // Core1のメイン関数
 void main_core1()
 {
-    // キーマトリクス読み取り タイマー割り込み Hz周期
-    static repeating_timer_t timer;
-    // add_repeating_timer_ms(100, &timer_callback, NULL, &timer);
-
     for (uint8_t i = 0; i < N_KEYS; i++)
     {
         velocity[i] = 127;
         gate_on[i] = false;
     }
-    // add_repeating_timer_ms(100, &timer_callback, NULL, &timer);
     while (true)
     {
-        timer_callback(&timer);
+        task_keyboard();
         sleep_ms(2);
     }
 }
@@ -105,7 +114,7 @@ void scan_keyboard(uint16_t results[N_PIN_HIGH])
     }
 }
 
-bool timer_callback(repeating_timer_t *rt)
+void task_keyboard()
 {
 
     // read key-matrix
@@ -136,5 +145,4 @@ bool timer_callback(repeating_timer_t *rt)
             queue_add_blocking(&key_event, &event);
         }
     }
-    return true;
 }
