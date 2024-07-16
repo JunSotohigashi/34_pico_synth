@@ -85,10 +85,10 @@ void main_core0()
     for (uint8_t i = 0; i < n_voice; i++)
     {
         voice[i].set_vco1_wave_type(WaveType::Square);
-        voice[i].set_vco2_wave_type(WaveType::Saw);
+        voice[i].set_vco2_wave_type(WaveType::Square);
     }
 
-    voice[0].set_vco_freq_note_number(48);
+    voice[0].set_vco_freq_note_number(36);
     voice[1].set_vco_freq_note_number(52);
 
     bool btn1_old = false;
@@ -124,6 +124,7 @@ void main_core0()
 
             uint16_t vr1 = adc_read();
             voice[0].set_vco_duty(vr1<<3);
+            voice[1].set_vco_duty(vr1<<3);
         }
 
         if (input_cycle == 0)
