@@ -9,6 +9,7 @@
 #define N_PIN_HIGH 12
 #define N_PIN_LOW 14
 #define N_KEYS 76
+#define PIN_PEDAL 15
 
 // high-side GPIO: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 // low-side GPIO: 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29
@@ -20,6 +21,8 @@ const uint8_t KEY_INDEX[N_KEYS] = {80, 66, 52, 37, 23, 9, 79, 65, 51, 36, 22, 8,
 queue_t key_event;
 uint8_t velocity[N_KEYS];
 bool gate_on[N_KEYS];
+bool pedal_default;
+bool pedal_old;
 
 // 関数プロトタイプ宣言
 int main();
@@ -58,11 +61,26 @@ void main_core0()
             queue_remove_blocking(&key_event, &event);
             uint8_t note_number = event >> 8;
             uint8_t note_velocity = event & 0xFF;
-            
+
             uint8_t msg[3];
-            msg[0] = 0x90; // Note on - CH1
-            msg[1] = note_number;
-            msg[2] = note_velocity;
+            if (event == 0)
+            {
+                msg[0] = 0xB0; // Control Change
+                msg[1] = 0x40; // Sustain
+                msg[2] = 0;    // Off
+            }
+            else if (event == 1)
+            {
+                msg[0] = 0xB0; // Control Change
+                msg[1] = 0x40; // Sustain
+                msg[2] = 127;  // Off
+            }
+            else
+            {
+                msg[0] = 0x90; // Note on - CH1
+                msg[1] = note_number;
+                msg[2] = note_velocity;
+            }
             tud_midi_stream_write(0, msg, 3);
         }
         sleep_ms(1);
@@ -99,6 +117,12 @@ void pin_init()
             gpio_is_input_hysteresis_enabled(i);
         }
     }
+
+    gpio_init(PIN_PEDAL);
+    gpio_set_dir(PIN_PEDAL, GPIO_IN);
+    gpio_pull_up(PIN_PEDAL);
+    pedal_default = gpio_get(PIN_PEDAL);
+    pedal_old = pedal_default;
 }
 
 // scan keyboards as matrix
@@ -116,7 +140,6 @@ void scan_keyboard(uint16_t results[N_PIN_HIGH])
 
 void task_keyboard()
 {
-
     // read key-matrix
     uint16_t keys_raw[N_PIN_HIGH];
     scan_keyboard(keys_raw);
@@ -145,4 +168,21 @@ void task_keyboard()
             queue_add_blocking(&key_event, &event);
         }
     }
+
+    // read pedal
+    bool pedal_now = gpio_get(PIN_PEDAL);
+    if (pedal_now != pedal_old)
+    {
+        if (pedal_now != pedal_default)
+        {
+            uint16_t event = 1;
+            queue_add_blocking(&key_event, &event);
+        }
+        else
+        {
+            uint16_t event = 0;
+            queue_add_blocking(&key_event, &event);
+        }
+    }
+    pedal_old = pedal_now;
 }
