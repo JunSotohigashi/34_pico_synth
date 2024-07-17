@@ -39,7 +39,12 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(pico-synth-panel pico-synth-panel.cpp )
+add_executable(pico-synth-panel
+        pico-synth-panel.cpp
+        spi_device.cpp
+        spi_mcp3008.cpp
+        spi_74hc165.cpp
+        spi_74hc595.cpp)
 
 pico_set_program_name(pico-synth-panel "pico-synth-panel")
 pico_set_program_version(pico-synth-panel "0.1")
