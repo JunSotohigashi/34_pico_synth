@@ -11,11 +11,37 @@
 #define PIN_MISO 16
 #define PIN_CS_ADC1 7
 #define PIN_CS_ADC2 8
-#define PIN_CS_SR1 2
-#define PIN_CS_SR2 3
-#define PIN_CS_SR3 4
-#define PIN_CS_SR4 5
-#define PIN_CS_SR5 6
+#define PIN_CS_SR_UNIT_LOW 2
+#define PIN_CS_SR_LFO_HIGH_VCF 3
+#define PIN_CS_SR_LFO_LOW 4
+#define PIN_CS_SR_UNIT_HIGH 5
+#define PIN_CS_SR_VCO 6
+#define PIN_SW_VCO1_R 29
+#define PIN_SW_VCO1_L 28
+#define PIN_SW_VCO2_R 27
+#define PIN_SW_VCO2_L 26
+#define PIN_SW_VCF_R 25
+#define PIN_SW_VCF_L 24
+#define PIN_SW_VCA_WAVE_R 23
+#define PIN_SW_VCA_WAVE_L 22
+#define PIN_SW_VCA_TARGET_R 21
+#define PIN_SW_VCA_TARGET_L 20
+
+// VCF:Cut-Off, VCO:mix, VCO:Duty, VCO2:Tune, VCF:Release, VCF:Decay, VCF:Attack, VCF:Resonance
+SPIMCP3008 adc1(SPI_PORT, PIN_CS_ADC1);
+// LFO:Depth, LFO:Speed, VCA:Gain, VCA:Release, VCA:Sustain, VCA:Decay, VCA:Attack, VCF:Sustain
+SPIMCP3008 adc2(SPI_PORT, PIN_CS_ADC2);
+
+// Unit: [6, 5, 4, 3, 2, 1, 0, 7]
+SPI74HC595 led_unit_low(SPI_PORT, PIN_CS_SR_UNIT_LOW);
+// Unit: [6, 5, 4, 3, 2, 1, 0, 7]
+SPI74HC595 led_unit_high(SPI_PORT, PIN_CS_SR_UNIT_HIGH);
+// [VCF:LPF, LFO:wave5, LFO:wave4, LFO:wave3, LFO:wave2, LFO:wave1, LFO:wave0, VCF:HPF]
+SPI74HC595 led_lfo_high_vcf(SPI_PORT, PIN_CS_SR_LFO_HIGH_VCF);
+// LFO:target [5, 4, 3, 2, 1, 0]
+SPI74HC595 led_lfo_low(SPI_PORT, PIN_CS_SR_LFO_LOW);
+// VCO:wave: [2:2, 2:1, 2:0, 1:3, 1:2, 1:1, 1:0, 2:3]
+SPI74HC595 led_vco(SPI_PORT, PIN_CS_SR_VCO);
 
 void print_adc(SPIMCP3008 adc1, SPIMCP3008 adc2)
 {
@@ -29,6 +55,20 @@ void print_adc(SPIMCP3008 adc1, SPIMCP3008 adc2)
     }
 }
 
+void print_sw()
+{
+    printf(">PIN_SW_VCO1_L: %d\n", gpio_get(PIN_SW_VCO1_L));
+    printf(">PIN_SW_VCO1_R: %d\n", gpio_get(PIN_SW_VCO1_R));
+    printf(">PIN_SW_VCO2_L: %d\n", gpio_get(PIN_SW_VCO2_L));
+    printf(">PIN_SW_VCO2_R: %d\n", gpio_get(PIN_SW_VCO2_R));
+    printf(">PIN_SW_VCF_L: %d\n", gpio_get(PIN_SW_VCF_L));
+    printf(">PIN_SW_VCF_R: %d\n", gpio_get(PIN_SW_VCF_R));
+    printf(">PIN_SW_VCA_WAVE_L: %d\n", gpio_get(PIN_SW_VCA_WAVE_L));
+    printf(">PIN_SW_VCA_WAVE_R: %d\n", gpio_get(PIN_SW_VCA_WAVE_R));
+    printf(">PIN_SW_VCA_TARGET_L: %d\n", gpio_get(PIN_SW_VCA_TARGET_L));
+    printf(">PIN_SW_VCA_TARGET_R: %d\n", gpio_get(PIN_SW_VCA_TARGET_R));
+}
+
 int main()
 {
     stdio_init_all();
@@ -39,13 +79,46 @@ int main()
     gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
 
-    SPIMCP3008 adc1(SPI_PORT, PIN_CS_ADC1);
-    SPIMCP3008 adc2(SPI_PORT, PIN_CS_ADC2);
-    SPI74HC595 led1(SPI_PORT, PIN_CS_SR1);
-    SPI74HC595 led2(SPI_PORT, PIN_CS_SR2);
-    SPI74HC595 led3(SPI_PORT, PIN_CS_SR3);
-    SPI74HC595 led4(SPI_PORT, PIN_CS_SR4);
-    SPI74HC595 led5(SPI_PORT, PIN_CS_SR5);
+    gpio_init(PIN_SW_VCO1_L);
+    gpio_init(PIN_SW_VCO1_R);
+    gpio_init(PIN_SW_VCO2_L);
+    gpio_init(PIN_SW_VCO2_R);
+    gpio_init(PIN_SW_VCF_L);
+    gpio_init(PIN_SW_VCF_R);
+    gpio_init(PIN_SW_VCA_WAVE_L);
+    gpio_init(PIN_SW_VCA_WAVE_R);
+    gpio_init(PIN_SW_VCA_TARGET_L);
+    gpio_init(PIN_SW_VCA_TARGET_R);
+    gpio_set_dir(PIN_SW_VCO1_L, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCO1_R, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCO2_L, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCO2_R, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCF_L, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCF_R, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCA_WAVE_L, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCA_WAVE_R, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCA_TARGET_L, GPIO_IN);
+    gpio_set_dir(PIN_SW_VCA_TARGET_R, GPIO_IN);
+    gpio_set_pulls(PIN_SW_VCO1_L, true, false);
+    gpio_set_pulls(PIN_SW_VCO1_R, true, false);
+    gpio_set_pulls(PIN_SW_VCO2_L, true, false);
+    gpio_set_pulls(PIN_SW_VCO2_R, true, false);
+    gpio_set_pulls(PIN_SW_VCF_L, true, false);
+    gpio_set_pulls(PIN_SW_VCF_R, true, false);
+    gpio_set_pulls(PIN_SW_VCA_WAVE_L, true, false);
+    gpio_set_pulls(PIN_SW_VCA_WAVE_R, true, false);
+    gpio_set_pulls(PIN_SW_VCA_TARGET_L, true, false);
+    gpio_set_pulls(PIN_SW_VCA_TARGET_R, true, false);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCO1_L, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCO1_R, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCO2_L, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCO2_R, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCF_L, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCF_R, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCA_WAVE_L, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCA_WAVE_R, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCA_TARGET_L, true);
+    gpio_set_input_hysteresis_enabled(PIN_SW_VCA_TARGET_R, true);
 
     while (true)
     {
@@ -54,47 +127,48 @@ int main()
             for (uint16_t j = 0; j < 256; j++)
             {
                 print_adc(adc1, adc2);
+                print_sw();
                 switch (i)
                 {
                 case 0:
-                    led1.put_8bit(j);
-                    led2.put_8bit(0);
-                    led3.put_8bit(0);
-                    led4.put_8bit(0);
-                    led5.put_8bit(0);
+                    led_unit_low.put_8bit(j);
+                    led_lfo_high_vcf.put_8bit(0);
+                    led_unit_high.put_8bit(0);
+                    led_lfo_low.put_8bit(0);
+                    led_vco.put_8bit(0);
                     break;
                 case 1:
-                    led1.put_8bit(0);
-                    led2.put_8bit(j);
-                    led3.put_8bit(0);
-                    led4.put_8bit(0);
-                    led5.put_8bit(0);
+                    led_unit_low.put_8bit(0);
+                    led_lfo_high_vcf.put_8bit(j);
+                    led_unit_high.put_8bit(0);
+                    led_lfo_low.put_8bit(0);
+                    led_vco.put_8bit(0);
                     break;
                 case 2:
-                    led1.put_8bit(0);
-                    led2.put_8bit(0);
-                    led3.put_8bit(j);
-                    led4.put_8bit(0);
-                    led5.put_8bit(0);
+                    led_unit_low.put_8bit(0);
+                    led_lfo_high_vcf.put_8bit(0);
+                    led_unit_high.put_8bit(j);
+                    led_lfo_low.put_8bit(0);
+                    led_vco.put_8bit(0);
                     break;
                 case 3:
-                    led1.put_8bit(0);
-                    led2.put_8bit(0);
-                    led3.put_8bit(0);
-                    led4.put_8bit(j);
-                    led5.put_8bit(0);
+                    led_unit_low.put_8bit(0);
+                    led_lfo_high_vcf.put_8bit(0);
+                    led_unit_high.put_8bit(0);
+                    led_lfo_low.put_8bit(j);
+                    led_vco.put_8bit(0);
                     break;
                 case 4:
-                    led1.put_8bit(0);
-                    led2.put_8bit(0);
-                    led3.put_8bit(0);
-                    led4.put_8bit(0);
-                    led5.put_8bit(j);
+                    led_unit_low.put_8bit(0);
+                    led_lfo_high_vcf.put_8bit(0);
+                    led_unit_high.put_8bit(0);
+                    led_lfo_low.put_8bit(0);
+                    led_vco.put_8bit(j);
                     break;
                 default:
                     break;
                 }
-                sleep_ms(20);
+                sleep_ms(10);
             }
         }
     }
