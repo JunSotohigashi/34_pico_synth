@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "spi_mcp3008.hpp"
+#include "spi_74hc595.hpp"
 
 // SPI Defines
 #define SPI_PORT spi0
@@ -28,7 +29,14 @@ int main()
 
     SPIMCP3008 adc1(SPI_PORT, PIN_CS_ADC1);
     SPIMCP3008 adc2(SPI_PORT, PIN_CS_ADC2);
-
+    SPI74HC595 led1(SPI_PORT, PIN_CS_SR1);
+    SPI74HC595 led2(SPI_PORT, PIN_CS_SR2);
+    SPI74HC595 led3(SPI_PORT, PIN_CS_SR3);
+    SPI74HC595 led4(SPI_PORT, PIN_CS_SR4);
+    SPI74HC595 led5(SPI_PORT, PIN_CS_SR5);
+    
+    led1.put_8bit(0b10101010);
+    
     while (true)
     {
         for (uint8_t i = 0; i < 8; i++)
