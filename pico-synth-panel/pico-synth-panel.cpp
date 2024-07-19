@@ -17,6 +17,18 @@
 #define PIN_CS_SR4 5
 #define PIN_CS_SR5 6
 
+void print_adc(SPIMCP3008 adc1, SPIMCP3008 adc2)
+{
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        printf(">CHa%u: %4u\n", i, adc1.read(i));
+    }
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        printf(">CHb%u: %4u\n", i, adc2.read(i));
+    }
+}
+
 int main()
 {
     stdio_init_all();
@@ -34,19 +46,56 @@ int main()
     SPI74HC595 led3(SPI_PORT, PIN_CS_SR3);
     SPI74HC595 led4(SPI_PORT, PIN_CS_SR4);
     SPI74HC595 led5(SPI_PORT, PIN_CS_SR5);
-    
-    led1.put_8bit(0b10101010);
-    
+
     while (true)
     {
-        for (uint8_t i = 0; i < 8; i++)
+        for (uint8_t i = 0; i < 5; i++)
         {
-            printf(">CHa%u: %4u\n", i, adc1.read(i));
+            for (uint16_t j = 0; j < 256; j++)
+            {
+                print_adc(adc1, adc2);
+                switch (i)
+                {
+                case 0:
+                    led1.put_8bit(j);
+                    led2.put_8bit(0);
+                    led3.put_8bit(0);
+                    led4.put_8bit(0);
+                    led5.put_8bit(0);
+                    break;
+                case 1:
+                    led1.put_8bit(0);
+                    led2.put_8bit(j);
+                    led3.put_8bit(0);
+                    led4.put_8bit(0);
+                    led5.put_8bit(0);
+                    break;
+                case 2:
+                    led1.put_8bit(0);
+                    led2.put_8bit(0);
+                    led3.put_8bit(j);
+                    led4.put_8bit(0);
+                    led5.put_8bit(0);
+                    break;
+                case 3:
+                    led1.put_8bit(0);
+                    led2.put_8bit(0);
+                    led3.put_8bit(0);
+                    led4.put_8bit(j);
+                    led5.put_8bit(0);
+                    break;
+                case 4:
+                    led1.put_8bit(0);
+                    led2.put_8bit(0);
+                    led3.put_8bit(0);
+                    led4.put_8bit(0);
+                    led5.put_8bit(j);
+                    break;
+                default:
+                    break;
+                }
+                sleep_ms(20);
+            }
         }
-        for (uint8_t i = 0; i < 8; i++)
-        {
-            printf(">CHb%u: %4u\n", i, adc2.read(i));
-        }
-        // sleep_ms(10);
     }
 }
