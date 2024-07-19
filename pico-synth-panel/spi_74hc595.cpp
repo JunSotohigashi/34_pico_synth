@@ -24,4 +24,5 @@ void SPI74HC595::put(uint8_t pin, bool value)
     {
         value_8bit &= ~(1 << pin);
     }
+    write_bytes(&value_8bit, 1);
 }
