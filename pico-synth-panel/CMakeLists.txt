@@ -43,7 +43,6 @@ add_executable(pico-synth-panel
         pico-synth-panel.cpp
         spi_device.cpp
         spi_mcp3008.cpp
-        spi_74hc165.cpp
         spi_74hc595.cpp)
 
 pico_set_program_name(pico-synth-panel "pico-synth-panel")
