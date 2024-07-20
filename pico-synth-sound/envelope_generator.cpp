@@ -28,7 +28,7 @@ uint16_t EG::get_value()
         }
         else
         {
-            value28 += mul_q28_q28((0x10000000 - value28), 0x8000);
+            value28 += mul_q28_q28((0x10000000 - value28), 0x8000); //TODO: Attack 可変にする 
             if (value28 + 0x100000 > 0x10000000)
             {
                 value28 = 0x10000000;

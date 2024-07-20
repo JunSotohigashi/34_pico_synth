@@ -9,23 +9,47 @@
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
-// 定数宣言
+// constants
 #define PIN_OUT_L 14
 #define PIN_OUT_R 15
 #define PIN_BTN_1 12
 #define PIN_BTN_2 13
 #define PIN_VR_1 26
 
-// グローバル変数
+// global variablea
 queue_t sound_buffer;
 
-// 関数プロトタイプ宣言
+// prototypes
+/**
+ * \brief main function
+ *
+ * \return int
+ */
 int main();
+
+/**
+ * \brief main function for core 0
+ *
+ * \note Core 0 generates sound data and stream to Core 1
+ */
 void main_core0();
+
+/**
+ * \brief main function for core 1
+ *
+ * \note Core 1 receives sound data and output using PWM
+ * \note Repeating timer is used for precise intervals
+ */
 void main_core1();
+
+/**
+ * \brief called 40kHz cycle, output sound using PWM
+ *
+ * \param rt handler of repeating timer
+ * \return Always return true for enabling next callback
+ */
 bool timer_callback(repeating_timer_t *rt);
 
-// メイン関数
 int main()
 {
     stdio_init_all();
@@ -77,7 +101,6 @@ int main()
     main_core0();
 }
 
-// Core0のメイン関数
 void main_core0()
 {
     uint8_t n_voice = 2;
@@ -123,8 +146,8 @@ void main_core0()
             btn2_old = btn2;
 
             uint16_t vr1 = adc_read();
-            voice[0].set_vco_duty(vr1<<3);
-            voice[1].set_vco_duty(vr1<<3);
+            voice[0].set_vco_duty(vr1 << 3);
+            voice[1].set_vco_duty(vr1 << 3);
         }
 
         if (input_cycle == 0)
@@ -149,30 +172,28 @@ void main_core0()
     }
 }
 
-// Core1のメイン関数
 void main_core1()
 {
-    // 音声出力割り込み 40kHz(25us)周期
+    // launch 40kHz(25us) timer for sound output
     static repeating_timer_t timer;
     add_repeating_timer_us(-25, &timer_callback, NULL, &timer);
 }
 
-// 40kHz周期で呼び出され, PWM音声出力を行う
 bool timer_callback(repeating_timer_t *rt)
 {
-    // 音声出力バッファが空
+    // In case of no stream, do nothing
     if (queue_is_empty(&sound_buffer))
     {
         gpio_put(PICO_DEFAULT_LED_PIN, true);
         return true;
     }
 
-    // バッファからの取り出し
+    // Pop value from the queue
     uint32_t out_level;
     queue_try_remove(&sound_buffer, &out_level);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 
-    // -32768~32767(int16) から PWMのデューティー 0~2047(uint11) へ変換
+    // Convert -32768~32767(int16) to 0~2047(uint11)
     pwm_set_gpio_level(PIN_OUT_R, out_level & 0x7FF);
     pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16) & 0x7FF);
 

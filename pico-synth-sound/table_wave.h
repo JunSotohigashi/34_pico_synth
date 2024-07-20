@@ -1,3 +1,13 @@
+/**
+ * \file table_wave.h
+ * \author JunSotohigashi (c6h4ohcooc6h5@gmail.com)
+ * \brief this wavetable normalized for int16
+ * \version 0.1
+ * \date 2024-07-20
+ * 
+ * 
+ */
+
 #ifndef TABLE_WAVE_H
 #define TABLE_WAVE_H
 
