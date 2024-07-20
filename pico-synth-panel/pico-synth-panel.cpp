@@ -172,8 +172,9 @@ int main()
     uint8_t lfo_target_pin[6] = {1, 2, 3, 4, 5, 6};
     Selector lfo_target(PIN_SW_LFO_TARGET_R, PIN_SW_LFO_TARGET_L, 6, lfo_target_sr, lfo_target_pin);
 
-    uint8_t count = 0;
-    uint8_t unit1 = 0;
+    uint8_t unit_now = 0;
+    uint16_t unit_state = 0;
+    uint8_t unit_note[16] = {0};
 
     while (true)
     {
@@ -182,20 +183,6 @@ int main()
         vcf.update();
         lfo_wave.update();
         lfo_target.update();
-
-        if (count == 10)
-        {
-            print_adc(adc1, adc2);
-            print_sw();
-            count = 0;
-            led_unit_high.put_8bit(unit1 << 1 | unit1 >> 7);
-            led_unit_low.put_8bit(~(unit1 << 1 | unit1 >> 7));
-            unit1++;
-        }
-        else
-        {
-            count++;
-        }
 
         if (uart_is_readable(UART_PORT))
         {
@@ -210,7 +197,44 @@ int main()
                     break;
                 }
             }
-            printf(buf);
+            uint8_t msg[3];
+            sscanf(buf, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
+            printf("%02x %02x %02x\n", msg[0], msg[1], msg[2]);
+
+            // select unit
+            if (msg[0] != 0)
+            {
+                if (msg[2] == 0)
+                {
+                    for (uint8_t i = 0; i < 16; i++)
+                    {
+                        if (unit_note[i] == msg[1])
+                        {
+                            unit_note[i] = 0;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    for (uint8_t i = 0; i < 16; i++)
+                    {
+                        if (unit_note[(i + unit_now) % 16] == 0)
+                        {
+                            unit_note[(i + unit_now) % 16] = msg[1];
+                            unit_now = unit_now + i + 1;
+                            break;
+                        }
+                    }
+                }
+
+                for (uint8_t i = 0; i < 16; i++)
+                {
+                    unit_state = (unit_state << 1) | (unit_note[15 - i] != 0);
+                }
+            }
+            led_unit_high.put_8bit((unit_state & 0xFF) << 1 | (unit_state & 0xFF) >> 7);
+            led_unit_low.put_8bit((unit_state >> 8 & 0xFF) << 1 | (unit_state >> 8 & 0xFF) >> 7);
         }
 
         sleep_ms(10);
