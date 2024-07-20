@@ -1,3 +1,11 @@
+/**
+ * \file pico-synth-keyboard.c
+ * \author JunSotohigashi (c6h4ohcooc6h5@gmail.com)
+ * \brief Read keyboard and sustain pedal, send MIDI event via USB and UART to pico-synth-panel
+ * \version 0.1
+ * \date 2024-07-20
+ */
+
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
@@ -5,7 +13,7 @@
 #include "bsp/board.h"
 #include "tusb.h"
 
-// 定数宣言
+// constants
 #define N_PIN_HIGH 12
 #define N_PIN_LOW 14
 #define N_KEYS 76
@@ -20,38 +28,68 @@ const uint PIN_HIGH_MASK = 0b11111111111100;
 const uint PIN_LOW_MASK = 0b111111111111110000000000000000;
 const uint8_t KEY_INDEX[N_KEYS] = {80, 66, 52, 37, 23, 9, 79, 65, 51, 36, 22, 8, 78, 64, 50, 39, 25, 11, 81, 67, 53, 40, 26, 12, 82, 68, 54, 41, 27, 13, 83, 69, 55, 28, 14, 0, 70, 56, 42, 29, 15, 1, 71, 57, 43, 30, 16, 2, 72, 58, 44, 35, 21, 7, 77, 63, 49, 34, 20, 6, 76, 62, 48, 33, 19, 5, 75, 61, 47, 32, 18, 4, 74, 60, 46, 31};
 
-// グローバル変数
+// global variables
 queue_t key_event;
 uint8_t velocity[N_KEYS];
 bool gate_on[N_KEYS];
 bool pedal_default;
 bool pedal_old;
 
-// 関数プロトタイプ宣言
+// functions
+/**
+ * \brief Main function
+ *
+ * \return int
+ */
 int main();
+
+/**
+ * \brief Main function for Core 0
+ * \note Core 0 receives event and send via MIDI and UART
+ */
 void main_core0();
+
+/**
+ * \brief Main function for Core 1
+ * \note Core 1 scans keyboard and send event data to Core 0
+ */
 void main_core1();
+
+/**
+ * \brief GPIO initialize
+ *
+ */
 void pin_init();
-void scan_keyboard(uint16_t results[N_PIN_HIGH]);
+
+/**
+ * \brief Scan keyboard and send event to another core
+ *
+ */
 void task_keyboard();
 
-// メイン関数
+/**
+ * \brief scan keyboard for each high-side and put result into \a results
+ *
+ * \param results uint16_t array for storing result
+ * \note each bit corresponds to a key
+ */
+void scan_keyboard(uint16_t results[N_PIN_HIGH]);
+
 int main()
 {
-    // 初期化処理
+    // Initialization
     board_init();
     tusb_init();
     pin_init();
-    
-    // キーボードの押下情報を格納するキュー
+
+    // queue for keyboard events
     queue_init(&key_event, sizeof(uint32_t), 32);
 
-    // 処理開始
+    // launch main task
     multicore_launch_core1(main_core1);
     main_core0();
 }
 
-// Core0のメイン関数
 void main_core0()
 {
     while (true)
@@ -85,14 +123,13 @@ void main_core0()
             }
             tud_midi_stream_write(0, msg, 3);
             uint8_t buf[20];
-            sprintf(buf ,"%02x %02x %02x\n", msg[0], msg[1], msg[2]);
+            sprintf(buf, "%02x %02x %02x\n", msg[0], msg[1], msg[2]);
             uart_puts(UART_PORT, buf);
         }
         sleep_ms(1);
     }
 }
 
-// Core1のメイン関数
 void main_core1()
 {
     for (uint8_t i = 0; i < N_KEYS; i++)
@@ -107,7 +144,6 @@ void main_core1()
     }
 }
 
-// Initialize GPIO for keyboard-matrix
 void pin_init()
 {
     // keyboard matrix
@@ -136,7 +172,6 @@ void pin_init()
     gpio_set_function(PIN_UART_RX, GPIO_FUNC_UART);
 }
 
-// scan keyboards as matrix
 void scan_keyboard(uint16_t results[N_PIN_HIGH])
 {
     for (uint8_t i = 0; i < N_PIN_HIGH; i++)
