@@ -16,6 +16,11 @@
 #define PIN_CS_SR_LFO_LOW 4
 #define PIN_CS_SR_UNIT_HIGH 5
 #define PIN_CS_SR_VCO 6
+// UART
+#define UART_PORT uart0
+#define PIN_UART_TX 0
+#define PIN_UART_RX 1
+// switches
 #define PIN_SW_VCO1_R 29
 #define PIN_SW_VCO1_L 28
 #define PIN_SW_VCO2_R 27
@@ -120,6 +125,11 @@ int main()
 {
     stdio_init_all();
 
+    // UART
+    uart_init(UART_PORT, 115200);
+    gpio_set_function(PIN_UART_TX, GPIO_FUNC_UART);
+    gpio_set_function(PIN_UART_RX, GPIO_FUNC_UART);
+
     // SPI initialisation. This example will use SPI at 1MHz.
     spi_init(SPI_PORT, 1000 * 1000);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
@@ -183,7 +193,25 @@ int main()
             unit1++;
         }
         else
+        {
             count++;
+        }
+
+        if (uart_is_readable(UART_PORT))
+        {
+            char buf[100];
+            buf[19] = '\0';
+            for (uint8_t i = 0; i < 99; i++)
+            {
+                buf[i] = uart_getc(UART_PORT);
+                if (buf[i] == '\n')
+                {
+                    buf[i + 1] = '\0';
+                    break;
+                }
+            }
+            printf(buf);
+        }
 
         sleep_ms(10);
     }

@@ -47,7 +47,7 @@ pico_set_program_name(pico-synth-keyboard "pico-synth-keyboard")
 pico_set_program_version(pico-synth-keyboard "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(pico-synth-keyboard 1)
+pico_enable_stdio_uart(pico-synth-keyboard 0)
 pico_enable_stdio_usb(pico-synth-keyboard 0)
 
 # Add the standard library to the build

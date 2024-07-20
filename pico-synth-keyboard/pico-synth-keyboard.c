@@ -10,6 +10,9 @@
 #define N_PIN_LOW 14
 #define N_KEYS 76
 #define PIN_PEDAL 15
+#define UART_PORT uart0
+#define PIN_UART_TX 0
+#define PIN_UART_RX 1
 
 // high-side GPIO: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 // low-side GPIO: 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29
@@ -36,11 +39,10 @@ void task_keyboard();
 int main()
 {
     // 初期化処理
-    stdio_init_all();
     board_init();
     tusb_init();
     pin_init();
-
+    
     // キーボードの押下情報を格納するキュー
     queue_init(&key_event, sizeof(uint32_t), 32);
 
@@ -82,6 +84,9 @@ void main_core0()
                 msg[2] = note_velocity;
             }
             tud_midi_stream_write(0, msg, 3);
+            uint8_t buf[20];
+            sprintf(buf ,"%02x %02x %02x\n", msg[0], msg[1], msg[2]);
+            uart_puts(UART_PORT, buf);
         }
         sleep_ms(1);
     }
@@ -105,10 +110,10 @@ void main_core1()
 // Initialize GPIO for keyboard-matrix
 void pin_init()
 {
+    // keyboard matrix
     gpio_init_mask(PIN_HIGH_MASK | PIN_LOW_MASK);
     gpio_set_dir_out_masked(PIN_HIGH_MASK);
     gpio_set_dir_in_masked(PIN_LOW_MASK);
-
     for (uint8_t i = 0; i < 32; i++)
     {
         if ((PIN_LOW_MASK >> i) & 1)
@@ -118,11 +123,17 @@ void pin_init()
         }
     }
 
+    // sustain pedal
     gpio_init(PIN_PEDAL);
     gpio_set_dir(PIN_PEDAL, GPIO_IN);
     gpio_pull_up(PIN_PEDAL);
     pedal_default = gpio_get(PIN_PEDAL);
     pedal_old = pedal_default;
+
+    // UART
+    uart_init(UART_PORT, 115200);
+    gpio_set_function(PIN_UART_TX, GPIO_FUNC_UART);
+    gpio_set_function(PIN_UART_RX, GPIO_FUNC_UART);
 }
 
 // scan keyboards as matrix
@@ -131,10 +142,10 @@ void scan_keyboard(uint16_t results[N_PIN_HIGH])
     for (uint8_t i = 0; i < N_PIN_HIGH; i++)
     {
         // shift and set high-side
-        gpio_put_masked(0b11111111111100, 1 << (i + 2));
+        gpio_put_masked(PIN_HIGH_MASK, 1 << (i + 2));
         sleep_us(10);
         // read GPIO 16-29
-        results[i] = (gpio_get_all() >> 16) & 0b11111111111111;
+        results[i] = gpio_get_all() >> 16;
     }
 }
 
