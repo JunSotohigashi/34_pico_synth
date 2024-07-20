@@ -176,6 +176,10 @@ int main()
     uint16_t unit_state = 0;
     uint8_t unit_note[16] = {0};
 
+    char buf[256] = {0};
+    char buf_msg[12] = {0};
+    uint8_t buf_index = 0;
+
     while (true)
     {
         vco1.update();
@@ -186,57 +190,49 @@ int main()
 
         if (uart_is_readable(UART_PORT))
         {
-            char buf[100];
-            buf[19] = '\0';
-            for (uint8_t i = 0; i < 99; i++)
+            buf[buf_index] = uart_getc(UART_PORT);
+            // message end
+            if (buf[buf_index] == '\n')
             {
-                buf[i] = uart_getc(UART_PORT);
-                if (buf[i] == '\n')
+                for (uint16_t i = 0; i <= 8; i++)
                 {
-                    buf[i + 1] = '\0';
-                    break;
+                    buf_msg[i] = buf[(buf_index + i - 8) & 0xFF];
                 }
-            }
-            uint8_t msg[3];
-            sscanf(buf, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
-            printf("%02x %02x %02x\n", msg[0], msg[1], msg[2]);
-
-            // select unit
-            if (msg[0] != 0)
-            {
-                if (msg[2] == 0)
+                buf_msg[10] = '\0';
+                uint8_t msg[3];
+                sscanf(buf_msg, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
+                printf("%02x %02x %02x\n", msg[0], msg[1], msg[2]);
+                // assign unit
+                if (msg[0] == 0x90)
                 {
                     for (uint8_t i = 0; i < 16; i++)
                     {
-                        if (unit_note[i] == msg[1])
+                        uint8_t i_offset = (i + unit_now) & 0x0F;
+                        if (msg[2] == 0) // note off
                         {
-                            unit_note[i] = 0;
-                            break;
+                            if ((unit_state & 1 << i) && unit_note[i] == msg[1])
+                            {
+                                unit_note[i] = 0;
+                                unit_state &= ~(1 << i);
+                                break;
+                            }
+                        }
+                        else // note on
+                        {
+                            if (!(unit_state & 1 << i_offset))
+                            {
+                                unit_state |= 1 << i_offset;
+                                unit_note[i_offset] = msg[1];
+                                unit_now = (i_offset + 1) & 0x0F;
+                                break;
+                            }
                         }
                     }
-                }
-                else
-                {
-                    for (uint8_t i = 0; i < 16; i++)
-                    {
-                        if (unit_note[(i + unit_now) % 16] == 0)
-                        {
-                            unit_note[(i + unit_now) % 16] = msg[1];
-                            unit_now = unit_now + i + 1;
-                            break;
-                        }
-                    }
-                }
-
-                for (uint8_t i = 0; i < 16; i++)
-                {
-                    unit_state = (unit_state << 1) | (unit_note[15 - i] != 0);
+                    led_unit_high.put_8bit((unit_state & 0xFF) << 1 | (unit_state & 0xFF) >> 7);
+                    led_unit_low.put_8bit((unit_state >> 8 & 0xFF) << 1 | (unit_state >> 8 & 0xFF) >> 7);
                 }
             }
-            led_unit_high.put_8bit((unit_state & 0xFF) << 1 | (unit_state & 0xFF) >> 7);
-            led_unit_low.put_8bit((unit_state >> 8 & 0xFF) << 1 | (unit_state >> 8 & 0xFF) >> 7);
+            buf_index++;
         }
-
-        sleep_ms(10);
     }
 }

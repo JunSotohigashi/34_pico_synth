@@ -83,7 +83,7 @@ int main()
     pin_init();
 
     // queue for keyboard events
-    queue_init(&key_event, sizeof(uint32_t), 32);
+    queue_init(&key_event, sizeof(uint16_t), 32);
 
     // launch main task
     multicore_launch_core1(main_core1);
@@ -113,7 +113,7 @@ void main_core0()
             {
                 msg[0] = 0xB0; // Control Change
                 msg[1] = 0x40; // Sustain
-                msg[2] = 127;  // Off
+                msg[2] = 127;  // On
             }
             else
             {
@@ -215,7 +215,7 @@ void task_keyboard()
         }
     }
 
-    // read pedal
+    // read sustain pedal
     bool pedal_now = gpio_get(PIN_PEDAL);
     if (pedal_now != pedal_old)
     {
