@@ -6,8 +6,18 @@
 #include "hardware/pwm.h"
 #include "hardware/interp.h"
 #include "hardware/adc.h"
-#include "voice.hpp"
-#include "fixed_point.hpp"
+// #include "voice.hpp"
+#include "oscillator.hpp"
+// #include "fixed_point.hpp"
+
+#include "include/fpm/fixed.hpp"
+
+// fpm examples
+// fpm::fixed_16_16 f;
+// fpm::fixed_16_16 f{1};
+// fpm::fixed_16_16 f{3.14159265};
+// float f_float = static_cast<float>(f);
+// int32_t f_int32 = f.raw_value();
 
 // constants
 #define PIN_OUT_L 14
@@ -94,6 +104,7 @@ int main()
     interp_config_set_blend(&interp_cfg, true);
     interp_set_config(interp0, 0, &interp_cfg);
     interp_cfg = interp_default_config();
+    interp_config_set_signed(&interp_cfg, true);
     interp_set_config(interp0, 1, &interp_cfg);
 
     // 処理開始
@@ -104,15 +115,20 @@ int main()
 void main_core0()
 {
     uint8_t n_voice = 2;
-    Voice voice[n_voice];
-    for (uint8_t i = 0; i < n_voice; i++)
-    {
-        voice[i].set_vco1_wave_type(WaveType::Square);
-        voice[i].set_vco2_wave_type(WaveType::Square);
-    }
 
-    voice[0].set_vco_freq_note_number(36);
-    voice[1].set_vco_freq_note_number(52);
+    Oscillator osc1;
+    osc1.set_wave_type(WaveType::Square);
+    osc1.set_phase16_delta(440.0 * 65536.0f / 40000.0f);
+
+    // Voice voice[n_voice];
+    // for (uint8_t i = 0; i < n_voice; i++)
+    // {
+    //     voice[i].set_vco1_wave_type(WaveType::Square);
+    //     voice[i].set_vco2_wave_type(WaveType::Square);
+    // }
+
+    // voice[0].set_vco_freq_note_number(36);
+    // voice[1].set_vco_freq_note_number(52);
 
     bool btn1_old = false;
     bool btn2_old = false;
@@ -127,45 +143,60 @@ void main_core0()
             bool btn2 = !gpio_get(PIN_BTN_2);
             if (!btn1_old && btn1)
             {
-                voice[0].gate_on();
+                // voice[0].gate_on();
             }
             if (!btn2_old && btn2)
             {
-                voice[1].gate_on();
+                // voice[1].gate_on();
             }
             if (btn1_old && !btn1)
             {
-                voice[0].gate_off();
+                // voice[0].gate_off();
             }
             if (btn2_old && !btn2)
             {
-                voice[1].gate_off();
+                // voice[1].gate_off();
             }
 
             btn1_old = btn1;
             btn2_old = btn2;
 
             uint16_t vr1 = adc_read();
-            voice[0].set_vco_duty(vr1 << 3);
-            voice[1].set_vco_duty(vr1 << 3);
+            // voice[0].set_vco_duty(vr1 << 3);
+            // voice[1].set_vco_duty(vr1 << 3);
         }
 
         if (input_cycle == 0)
         {
-            printf("Hello world!\n");
+            fpm::fixed_16_16 a{1};
+            fpm::fixed_16_16 b{-1};
+            fpm::fixed_16_16 c{0.5};
+            fpm::fixed_16_16 d{-0.5};
+            interp0->base[0] = 65536;
+            interp0->base[1] = -65536;
+            interp0->accum[1] = 64;
+            interp0->peek[1];
+            printf("Hello world! %08x %08x %08x %08x, %d\n", a.raw_value(), b.raw_value(), c.raw_value(), d.raw_value(), interp0->peek[1]);
         }
 
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
-        int16_t out_level = 0;
-        for (uint8_t i = 0; i < n_voice; i++)
+        fpm::fixed_16_16 gain_unit{0.125};
+        fpm::fixed_16_16 osc1_value = osc1.get_value() * gain_unit;
+
+        uint32_t out_level = osc1_value.raw_value() + 0x10000;
+        uint16_t out_level16;
+        if (out_level > 0x20000)
         {
-            out_level += mul_i16_q12(voice[i].get_value(), 0x0800);
+            out_level16 = 0xFFFF;
         }
-        // convert int16 to uint11
-        uint16_t out_level_L = (out_level >> 5) + 1024;
-        uint16_t out_level_R = (out_level >> 5) + 1024;
+        else
+        {
+            out_level16 = out_level >> 1;
+        }
+        uint16_t out_level_L = out_level16;
+        uint16_t out_level_R = out_level16;
         // write to sound buffer
         uint32_t out_level_LR = ((uint32_t)out_level_L << 16) | out_level_R;
         queue_add_blocking(&sound_buffer, &out_level_LR);
@@ -187,15 +218,13 @@ bool timer_callback(repeating_timer_t *rt)
         gpio_put(PICO_DEFAULT_LED_PIN, true);
         return true;
     }
-
     // Pop value from the queue
     uint32_t out_level;
     queue_try_remove(&sound_buffer, &out_level);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
-
-    // Convert -32768~32767(int16) to 0~2047(uint11)
-    pwm_set_gpio_level(PIN_OUT_R, out_level & 0x7FF);
-    pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16) & 0x7FF);
+    // Convert 0~65535(uint16) to 0~2047(uint11)
+    pwm_set_gpio_level(PIN_OUT_R, (out_level >> 5) & 0x7FF);
+    pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16 >> 5) & 0x7FF);
 
     return true;
 }

@@ -1,3 +1,5 @@
+/*
+
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
@@ -59,3 +61,5 @@ void Voice::set_vco_duty(uint16_t duty)
     vco1.set_duty(duty);
     vco2.set_duty(duty);
 }
+
+*/

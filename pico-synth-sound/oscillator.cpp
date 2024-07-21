@@ -11,10 +11,14 @@ Oscillator::Oscillator()
 {
 }
 
-int16_t Oscillator::get_value()
+fpm::fixed_16_16 Oscillator::get_value()
 {
     phase16 += phase16_delta;
     wave_type_now = wave_type_next; // TODO: 0交差時に切り替え
+
+    fpm::fixed_16_16 one{1};
+    fpm::fixed_16_16 zero{0};
+    fpm::fixed_16_16 value;
 
     switch (wave_type_now)
     {
@@ -22,30 +26,30 @@ int16_t Oscillator::get_value()
         interp0->base[0] = wave_saw[phase16 >> 8];
         interp0->base[1] = wave_saw[(phase16 + 1) >> 8];
         interp0->accum[1] = phase16 & 0xFF;
-        return interp0->peek[1];
+        return value.from_raw_value(interp0->peek[1]);
 
     case WaveType::Sine:
         interp0->base[0] = wave_sine[phase16 >> 8];
         interp0->base[1] = wave_sine[(phase16 + 1) >> 8];
         interp0->accum[1] = phase16 & 0xFF;
-        return interp0->peek[1];
+        return value.from_raw_value(interp0->peek[1]);
 
     case WaveType::Triangle:
         interp0->base[0] = wave_triangle[phase16 >> 8];
         interp0->base[1] = wave_triangle[(phase16 + 1) >> 8];
         interp0->accum[1] = phase16 & 0xFF;
-        return interp0->peek[1];
+        return value.from_raw_value(interp0->peek[1]);
 
     case WaveType::Square:
         if (phase16 < duty)
-            return 32767;
+            return one;
         else
-            return -32767;
+            return -one;
 
     default:
         break;
     }
-    return 0;
+    return zero;
 }
 
 void Oscillator::set_wave_type(WaveType wave_type)
