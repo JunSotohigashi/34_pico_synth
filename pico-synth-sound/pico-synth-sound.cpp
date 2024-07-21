@@ -6,9 +6,7 @@
 #include "hardware/pwm.h"
 #include "hardware/interp.h"
 #include "hardware/adc.h"
-// #include "voice.hpp"
-#include "oscillator.hpp"
-// #include "fixed_point.hpp"
+#include "voice.hpp"
 
 #include "include/fpm/fixed.hpp"
 
@@ -80,7 +78,7 @@ int main()
     adc_select_input(0);
 
     // 出力音声のバッファー
-    queue_init(&sound_buffer, sizeof(uint32_t), 32);
+    queue_init(&sound_buffer, sizeof(uint32_t), 64);
 
     // PWM音声出力 約61kHz
     gpio_init(PIN_OUT_L);
@@ -116,19 +114,15 @@ void main_core0()
 {
     uint8_t n_voice = 2;
 
-    Oscillator osc1;
-    osc1.set_wave_type(WaveType::Square);
-    osc1.set_phase16_delta(440.0 * 65536.0f / 40000.0f);
+    Voice voice[n_voice];
+    for (uint8_t i = 0; i < n_voice; i++)
+    {
+        voice[i].set_vco1_wave_type(WaveType::Saw);
+        voice[i].set_vco2_wave_type(WaveType::Saw);
+    }
 
-    // Voice voice[n_voice];
-    // for (uint8_t i = 0; i < n_voice; i++)
-    // {
-    //     voice[i].set_vco1_wave_type(WaveType::Square);
-    //     voice[i].set_vco2_wave_type(WaveType::Square);
-    // }
-
-    // voice[0].set_vco_freq_note_number(36);
-    // voice[1].set_vco_freq_note_number(52);
+    voice[0].set_vco_freq_note_number(36);
+    voice[1].set_vco_freq_note_number(52);
 
     bool btn1_old = false;
     bool btn2_old = false;
@@ -143,19 +137,19 @@ void main_core0()
             bool btn2 = !gpio_get(PIN_BTN_2);
             if (!btn1_old && btn1)
             {
-                // voice[0].gate_on();
+                voice[0].gate_on();
             }
             if (!btn2_old && btn2)
             {
-                // voice[1].gate_on();
+                voice[1].gate_on();
             }
             if (btn1_old && !btn1)
             {
-                // voice[0].gate_off();
+                voice[0].gate_off();
             }
             if (btn2_old && !btn2)
             {
-                // voice[1].gate_off();
+                voice[1].gate_off();
             }
 
             btn1_old = btn1;
@@ -168,24 +162,16 @@ void main_core0()
 
         if (input_cycle == 0)
         {
-            fpm::fixed_16_16 a{1};
-            fpm::fixed_16_16 b{-1};
-            fpm::fixed_16_16 c{0.5};
-            fpm::fixed_16_16 d{-0.5};
-            interp0->base[0] = 65536;
-            interp0->base[1] = -65536;
-            interp0->accum[1] = 64;
-            interp0->peek[1];
-            printf("Hello world! %08x %08x %08x %08x, %d\n", a.raw_value(), b.raw_value(), c.raw_value(), d.raw_value(), interp0->peek[1]);
+            printf("Hello world!");
         }
 
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
         fpm::fixed_16_16 gain_unit{0.125};
-        fpm::fixed_16_16 osc1_value = osc1.get_value() * gain_unit;
+        fpm::fixed_16_16 voice_value = voice[0].get_value() * gain_unit + voice[1].get_value() * gain_unit;
 
-        uint32_t out_level = osc1_value.raw_value() + 0x10000;
+        uint32_t out_level = voice_value.raw_value() + 0x10000;
         uint16_t out_level16;
         if (out_level > 0x20000)
         {

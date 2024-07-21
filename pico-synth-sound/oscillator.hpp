@@ -13,7 +13,6 @@
 
 #include "pico/stdlib.h"
 #include "include/fpm/fixed.hpp"
-#include "include/fpm/math.hpp"
 
 /**
  * \brief Waveform type expression

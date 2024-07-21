@@ -1,7 +1,7 @@
 /**
  * \file table_wave.h
  * \author JunSotohigashi (c6h4ohcooc6h5@gmail.com)
- * \brief this wavetable normalized for int16
+ * \brief this wavetable normalized for int32
  * \version 0.1
  * \date 2024-07-20
  *

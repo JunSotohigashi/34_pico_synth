@@ -2,55 +2,52 @@
 #include "fixed_point.hpp"
 
 EG::EG()
-    : value28(0),
-      state(EGState::Ready),
-      attack(0xFFFF),
-      decay(0xFFFF),
-      sustain(0x5FFF),
-      release(0xF),
-      tau(0x1000)
+    : state(EGState::Ready)
 {
 }
 
-uint16_t EG::get_value()
+fpm::fixed_16_16 EG::get_value()
 {
+    fpm::fixed_16_16 zero{0};
+    fpm::fixed_16_16 one{1};
+    fpm::fixed_16_16 threshold{0.05};
+
     if (state == EGState::Ready)
     {
-        value28 = 0;
+        value = zero;
     }
 
     if (state == EGState::Attack)
     {
-        if (attack == 0)
+        if (attack == zero)
         {
-            value28 = 0x10000000;
+            value = one;
             state = EGState::Decay;
         }
         else
         {
-            value28 += mul_q28_q28((0x10000000 - value28), 0x8000); //TODO: Attack 可変にする 
-            if (value28 + 0x100000 > 0x10000000)
+            value += (one - value) * attack * tau;
+            if (value + threshold > one)
             {
-                value28 = 0x10000000;
+                value = one;
                 state = EGState::Decay;
             }
         }
     }
 
-    uint32_t sustain_value28 = ((uint32_t)sustain + 1) << 12;
     if (state == EGState::Decay)
     {
-        if (decay == 0)
+        if (decay == zero)
         {
-            value28 = sustain_value28;
+            value = sustain;
             state = EGState::Sustain;
         }
         else
         {
-            value28 -= mul_q28_q28((value28 - sustain_value28), 0x8000);
-            if (value28 + 0x100000 < sustain_value28)
+            value -= (value - sustain) * decay * tau;
+            if (value + threshold < sustain)
             {
-                value28 = sustain_value28;
+                value = sustain;
                 state = EGState::Sustain;
             }
         }
@@ -58,23 +55,23 @@ uint16_t EG::get_value()
 
     if (state == EGState::Sustain)
     {
-        value28 = sustain_value28;
+        value = sustain;
     }
 
     if (state == EGState::Release)
     {
-        if (value28 < 0x100000)
+        if (value < threshold)
         {
-            value28 = 0;
+            value = zero;
             state = EGState::Ready;
         }
         else
         {
-            value28 -= mul_q28_q28(value28, 0x8000);
+            value -= value * release * tau;
         }
     }
 
-    return value28 >> 16;
+    return value;
 }
 
 void EG::gate_on()

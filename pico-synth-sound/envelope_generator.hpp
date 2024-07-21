@@ -12,6 +12,7 @@
 #define ENVELOPE_GENERATOR_HPP
 
 #include "pico/stdlib.h"
+#include "include/fpm/fixed.hpp"
 
 /**
  * \brief Envelope Generator state expression
@@ -38,9 +39,9 @@ public:
     /**
      * \brief Get the gain value in Q12
      *
-     * \return uint16_t gain(Q12), 0x10000 is 1.0
+     * \return fpm::fixed_16_16
      */
-    uint16_t get_value();
+    fpm::fixed_16_16 get_value();
 
     /**
      * \brief Trigger the gate on, set \a state to Attack
@@ -55,13 +56,13 @@ public:
     void gate_off();
 
 private:
-    uint32_t value28; // Current gain value in Q28
+    fpm::fixed_16_16 value{0}; // Current gain
     EGState state;    // Current EG state
-    uint16_t attack;  // Attack time, 0 - 65535
-    uint16_t decay;   // Decay time, 0 - 65535
-    uint16_t sustain; // Sustin level, 0 - 65535
-    uint16_t release; // Release time, 0 - 65535
-    uint16_t tau;     // Time constant for rate of change
+    fpm::fixed_16_16 attack{0.1};  // Attack time
+    fpm::fixed_16_16 decay{0.1};   // Decay time
+    fpm::fixed_16_16 sustain{0.4}; // Sustin level
+    fpm::fixed_16_16 release{0.1}; // Release time
+    fpm::fixed_16_16 tau{0.01};     // Time constant for rate of change
 };
 
 #endif

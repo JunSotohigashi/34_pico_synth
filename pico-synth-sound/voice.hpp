@@ -12,6 +12,7 @@
 #define VOICE_HPP
 
 #include "pico/stdlib.h"
+#include "include/fpm/fixed.hpp"
 #include "oscillator.hpp"
 #include "envelope_generator.hpp"
 #include "filter.hpp"
@@ -30,9 +31,9 @@ public:
     /**
      * \brief Get current value
      *
-     * \return int16_t output range: -32767 ~ 32767
+     * \return fpm::fixed_16_16 output
      */
-    int16_t get_value();
+    fpm::fixed_16_16 get_value();
 
     /**
      * \brief Trigger the gate on, set \a state to Attack
