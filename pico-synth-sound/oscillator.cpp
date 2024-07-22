@@ -16,8 +16,6 @@ Fixed_16_16 Oscillator::get_value()
     phase16 += phase16_delta;
     wave_type_now = wave_type_next; // TODO: 0交差時に切り替え
 
-    Fixed_16_16 one = Fixed_16_16::from_int32(1);
-    Fixed_16_16 zero = Fixed_16_16::from_int32(0);
     Fixed_16_16 value;
 
     switch (wave_type_now)
@@ -42,14 +40,14 @@ Fixed_16_16 Oscillator::get_value()
 
     case WaveType::Square:
         if (phase16 < duty)
-            return one;
+            return Fixed_16_16::one;
         else
-            return -one;
+            return -Fixed_16_16::one;
 
     default:
         break;
     }
-    return zero;
+    return Fixed_16_16::zero;
 }
 
 void Oscillator::set_wave_type(WaveType wave_type)

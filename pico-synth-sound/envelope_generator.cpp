@@ -4,7 +4,7 @@
 #define CYCLE_DIV 10
 
 EG::EG()
-    : value(Fixed_16_16::from_int32(0)),
+    : value(Fixed_16_16::zero),
       state(EGState::Ready),
       attack(Fixed_16_16::from_float(0.5)),
       decay(Fixed_16_16::from_float(0.5)),
@@ -19,30 +19,27 @@ Fixed_16_16 EG::get_value()
 {
     if (cycle == 0)
     {
-        Fixed_16_16 zero = Fixed_16_16::from_int32(0);
-        Fixed_16_16 one = Fixed_16_16::from_int32(1);
-        Fixed_16_16 epsilon = Fixed_16_16::from_raw_value(1);
         Fixed_16_16 threshold = Fixed_16_16::from_float(0.01);
 
         if (state == EGState::Ready)
         {
-            value = zero;
+            value = Fixed_16_16::zero;
         }
 
         if (state == EGState::Attack)
         {
-            if (attack == zero)
+            if (attack == Fixed_16_16::zero)
             {
-                value = one;
+                value = Fixed_16_16::one;
                 state = EGState::Decay;
             }
             else
             {
-                Fixed_16_16 delta = (one - value) / (attack * tau);
-                value += delta == zero ? epsilon : delta;
-                if (value + threshold > one)
+                Fixed_16_16 delta = (Fixed_16_16::one - value) / (attack * tau);
+                value += delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
+                if (value + threshold > Fixed_16_16::one)
                 {
-                    value = one;
+                    value = Fixed_16_16::one;
                     state = EGState::Decay;
                 }
             }
@@ -50,7 +47,7 @@ Fixed_16_16 EG::get_value()
 
         if (state == EGState::Decay)
         {
-            if (decay == zero)
+            if (decay == Fixed_16_16::zero)
             {
                 value = sustain;
                 state = EGState::Sustain;
@@ -58,7 +55,7 @@ Fixed_16_16 EG::get_value()
             else
             {
                 Fixed_16_16 delta = (value - sustain) / (decay * tau);
-                value -= delta == zero ? epsilon : delta;
+                value -= delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
                 if (value + threshold < sustain)
                 {
                     value = sustain;
@@ -76,13 +73,13 @@ Fixed_16_16 EG::get_value()
         {
             if (value < threshold)
             {
-                value = zero;
+                value = Fixed_16_16::zero;
                 state = EGState::Ready;
             }
             else
             {
                 Fixed_16_16 delta = value / (release * tau);
-                value -= delta == zero ? epsilon : delta;
+                value -= delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
             }
         }
     }

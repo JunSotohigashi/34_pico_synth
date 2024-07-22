@@ -21,6 +21,10 @@ public:
 
     int32_t raw_value;
 
+    static const Fixed_16_16 zero;
+    static const Fixed_16_16 one;
+    static const Fixed_16_16 epsilon;
+
     static Fixed_16_16 from_raw_value(int32_t raw_value)
     {
         Fixed_16_16 result;
@@ -131,5 +135,9 @@ public:
 
 private:
 };
+
+inline const Fixed_16_16 Fixed_16_16::zero = Fixed_16_16::from_int32(0);
+inline const Fixed_16_16 Fixed_16_16::one = Fixed_16_16::from_int32(1);
+inline const Fixed_16_16 Fixed_16_16::epsilon = Fixed_16_16::from_raw_value(1);
 
 #endif

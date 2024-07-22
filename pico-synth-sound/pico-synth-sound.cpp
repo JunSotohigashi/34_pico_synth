@@ -161,14 +161,14 @@ void main_core0()
 
         // get sound value
         Fixed_16_16 gain_unit = Fixed_16_16::from_float(0.125);
-        Fixed_16_16 voice_value = Fixed_16_16::from_raw_value(0);
+        Fixed_16_16 voice_value = Fixed_16_16::zero;
         for (uint8_t i = 0; i < n_voice; i++)
         {
             voice_value += voice[i].get_value();
         }
 
         uint32_t out_level = voice_value.raw_value + 0x10000;   // remove sign
-        uint16_t out_level16 = out_level >> 1;
+        uint16_t out_level16 = out_level >> 2;
 
         uint16_t out_level_L = out_level16;
         uint16_t out_level_R = out_level16;
