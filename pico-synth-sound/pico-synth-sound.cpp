@@ -120,6 +120,7 @@ void main_core0()
     bool btn2_old = false;
 
     uint16_t input_cycle = 0;
+    Fixed_16_16 gain_unit = Fixed_16_16::from_float(0.5);
 
     while (true)
     {
@@ -147,7 +148,7 @@ void main_core0()
             btn1_old = btn1;
             btn2_old = btn2;
 
-            uint16_t vr1 = adc_read();
+            // uint16_t vr1 = adc_read();
             // voice[0].set_vco_duty(vr1 << 3);
             // voice[1].set_vco_duty(vr1 << 3);
         }
@@ -160,14 +161,13 @@ void main_core0()
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
-        Fixed_16_16 gain_unit = Fixed_16_16::from_float(0.125);
         Fixed_16_16 voice_value = Fixed_16_16::zero;
         for (uint8_t i = 0; i < n_voice; i++)
         {
-            voice_value += voice[i].get_value();
+            voice_value += voice[i].get_value() * gain_unit;
         }
 
-        uint32_t out_level = voice_value.raw_value + 0x10000;   // remove sign
+        uint32_t out_level = voice_value.raw_value + 0x10000; // remove sign
         uint16_t out_level16 = out_level >> 2;
 
         uint16_t out_level_L = out_level16;

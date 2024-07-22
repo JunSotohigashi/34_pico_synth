@@ -6,11 +6,10 @@
 EG::EG()
     : value(Fixed_16_16::zero),
       state(EGState::Ready),
-      attack(Fixed_16_16::from_float(0.5)),
-      decay(Fixed_16_16::from_float(0.5)),
+      attack(Fixed_16_16::from_float(0.0008)),
+      decay(Fixed_16_16::from_float(0.0001)),
       sustain(Fixed_16_16::from_float(0.5)),
-      release(Fixed_16_16::from_float(0.5)),
-      tau(Fixed_16_16::from_float(4000.0)),
+      release(Fixed_16_16::from_float(0.0001)),
       cycle(0)
 {
 }
@@ -35,13 +34,13 @@ Fixed_16_16 EG::get_value()
             }
             else
             {
-                Fixed_16_16 delta = (Fixed_16_16::one - value) / (attack * tau);
-                value += delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
-                if (value + threshold > Fixed_16_16::one)
+                if (Fixed_16_16::one - value < attack)
                 {
                     value = Fixed_16_16::one;
                     state = EGState::Decay;
                 }
+                else
+                    value += attack;
             }
         }
 
@@ -54,13 +53,13 @@ Fixed_16_16 EG::get_value()
             }
             else
             {
-                Fixed_16_16 delta = (value - sustain) / (decay * tau);
-                value -= delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
-                if (value + threshold < sustain)
+                if (value - sustain < decay)
                 {
                     value = sustain;
                     state = EGState::Sustain;
                 }
+                else
+                    value -= decay;
             }
         }
 
@@ -71,16 +70,13 @@ Fixed_16_16 EG::get_value()
 
         if (state == EGState::Release)
         {
-            if (value < threshold)
+            if (value < release)
             {
                 value = Fixed_16_16::zero;
                 state = EGState::Ready;
             }
             else
-            {
-                Fixed_16_16 delta = value / (release * tau);
-                value -= delta == Fixed_16_16::zero ? Fixed_16_16::epsilon : delta;
-            }
+                value -= release;
         }
     }
 
