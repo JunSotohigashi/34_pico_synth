@@ -63,6 +63,7 @@ private:
     Fixed_16_16 sustain; // Sustin level
     Fixed_16_16 release; // Release time
     Fixed_16_16 tau;     // Time constant for rate of change
+    uint16_t cycle;
 };
 
 #endif

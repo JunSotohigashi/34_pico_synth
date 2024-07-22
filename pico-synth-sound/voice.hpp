@@ -88,6 +88,7 @@ private:
     Oscillator vco1;
     Oscillator vco2;
     EG vca_eg;
+    Filter vcf;
     float vco2_tune; // Frequency offset for VCO2
 };
 

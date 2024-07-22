@@ -6,6 +6,7 @@ Voice::Voice()
     : vco1(Oscillator()),
       vco2(Oscillator()),
       vca_eg(EG()),
+      vcf(Filter()),
       vco2_tune(1.0)
 {
 }
@@ -16,7 +17,7 @@ Fixed_16_16 Voice::get_value()
     Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * half;
     Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * half;
 
-    return value1 + value2;
+    return vcf.get_value(value1 + value2);
 }
 
 void Voice::gate_on()

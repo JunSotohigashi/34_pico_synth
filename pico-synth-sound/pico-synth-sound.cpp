@@ -70,7 +70,7 @@ int main()
     adc_select_input(0);
 
     // 出力音声のバッファー
-    queue_init(&sound_buffer, sizeof(uint32_t), 64);
+    queue_init(&sound_buffer, sizeof(uint32_t), 128);
 
     // PWM音声出力 約61kHz
     gpio_init(PIN_OUT_L);
