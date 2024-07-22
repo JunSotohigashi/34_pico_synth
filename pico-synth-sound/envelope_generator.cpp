@@ -1,15 +1,15 @@
 #include "envelope_generator.hpp"
 #include "fixed_point.hpp"
 
-#define CYCLE_DIV 10
+#define CYCLE_DIV 100
 
 EG::EG()
     : value(Fixed_16_16::zero),
       state(EGState::Ready),
-      attack(Fixed_16_16::from_float(0.0008)),
-      decay(Fixed_16_16::from_float(0.0001)),
+      attack(Fixed_16_16::from_float(0.008)),
+      decay(Fixed_16_16::from_float(0.001)),
       sustain(Fixed_16_16::from_float(0.5)),
-      release(Fixed_16_16::from_float(0.0001)),
+      release(Fixed_16_16::from_float(0.001)),
       cycle(0)
 {
 }

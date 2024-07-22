@@ -57,3 +57,8 @@ void Voice::set_vco_duty(uint16_t duty)
     vco1.set_duty(duty);
     vco2.set_duty(duty);
 }
+
+void Voice::set_vcf_freq_res(float cutoff_freq, float resonance)
+{
+   vcf.set_filter(cutoff_freq, resonance);
+}

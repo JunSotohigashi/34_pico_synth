@@ -1,4 +1,5 @@
 #include "filter.hpp"
+#include <cmath>
 
 Filter::Filter()
     : cutoff_freq(Fixed_16_16::from_float(5000.0f)),
@@ -9,22 +10,28 @@ Filter::Filter()
 
 void Filter::set_filter(Fixed_16_16 cutoff_freq, Fixed_16_16 resonance)
 {
-    // omega = 2 * pi * cuttoff_freq / sampling_rate
-    // omega = Fixed_16_16::from_float(10.29437081f) * cutoff_freq;
+    b_0_a_0 = Fixed_16_16::from_float(0.022186415f);
+    b_1_a_0 = Fixed_16_16::from_float(0.044372831f);
+    b_2_a_0 = Fixed_16_16::from_float(0.022186415f);
+    a_1_a_0 = Fixed_16_16::from_float(-1.724481653f);
+    a_2_a_0 = Fixed_16_16::from_float(0.813227315f);
+}
 
-    omega = Fixed_16_16::from_float(0.628318531f);
-    alpha = Fixed_16_16::from_float(0.293892626f);
-    a_0 = Fixed_16_16::from_float(1.293892626f);
-    a_1 = Fixed_16_16::from_float(-1.618033989f);
-    a_2 = Fixed_16_16::from_float(0.706107374f);
-    b_0 = Fixed_16_16::from_float(0.095491503f);
-    b_1 = Fixed_16_16::from_float(0.190983006f);
-    b_2 = Fixed_16_16::from_float(0.095491503f);
-    b_0_a_0 = b_0 / a_0;
-    b_1_a_0 = b_1 / a_0;
-    b_2_a_0 = b_2 / a_0;
-    a_1_a_0 = a_1 / a_0;
-    a_2_a_0 = a_2 / a_0;
+void Filter::set_filter(float cutoff_freq, float resonance)
+{
+    float omega = 2.0f * M_PI * cutoff_freq / 40000.0f;
+    float alpha = sinf(omega) / (2.0f * resonance);
+    float a_0 = 1.0f + alpha;
+    float a_1 = -2.0f * cosf(omega);
+    float a_2 = 1.0f - alpha;
+    float b_0 = (1.0f - cosf(omega)) / 2.0f;
+    float b_1 = 1.0f - cosf(omega);
+    float b_2 = (1.0f - cosf(omega)) / 2.0f;
+    b_0_a_0 = Fixed_16_16::from_float(b_0 / a_0);
+    b_1_a_0 = Fixed_16_16::from_float(b_1 / a_0);
+    b_2_a_0 = Fixed_16_16::from_float(b_2 / a_0);
+    a_1_a_0 = Fixed_16_16::from_float(a_1 / a_0);
+    a_2_a_0 = Fixed_16_16::from_float(a_2 / a_0);
 }
 
 Fixed_16_16 Filter::get_value(Fixed_16_16 x)

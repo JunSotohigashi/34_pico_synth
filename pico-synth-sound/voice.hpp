@@ -84,6 +84,8 @@ public:
      */
     void set_vco_duty(uint16_t duty);
 
+    void set_vcf_freq_res(float cutoff_freq, float resonance);
+
 private:
     Oscillator vco1;
     Oscillator vco2;

@@ -23,19 +23,12 @@ class Filter
 public:
     Filter();
     void set_filter(Fixed_16_16 cutoff_freq, Fixed_16_16 resonance);
+    void set_filter(float cutoff_freq, float resonance);
     Fixed_16_16 get_value(Fixed_16_16 x);
 
 private:
     Fixed_16_16 cutoff_freq;
     Fixed_16_16 resonance;
-    Fixed_16_16 omega;
-    Fixed_16_16 alpha;
-    Fixed_16_16 a_0;
-    Fixed_16_16 a_1;
-    Fixed_16_16 a_2;
-    Fixed_16_16 b_0;
-    Fixed_16_16 b_1;
-    Fixed_16_16 b_2;
     Fixed_16_16 b_0_a_0;
     Fixed_16_16 b_1_a_0;
     Fixed_16_16 b_2_a_0;
