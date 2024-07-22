@@ -7,6 +7,7 @@
 #include "hardware/interp.h"
 #include "hardware/adc.h"
 #include "voice.hpp"
+#include "fixed_point.hpp"
 
 #include "include/fpm/fixed.hpp"
 
@@ -162,7 +163,10 @@ void main_core0()
 
         if (input_cycle == 0)
         {
-            printf("Hello world!");
+            Fixed_16_16 x, y;
+            x.from_float(-0.5);
+            y.from_float(0.5);
+            printf("%08x %08x\n", x.raw_value, y.raw_value);
         }
 
         input_cycle = (input_cycle + 1) % 40000;

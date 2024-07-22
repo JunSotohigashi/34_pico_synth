@@ -44,8 +44,7 @@ add_executable(pico-synth-sound
         voice.cpp
         oscillator.cpp
         envelope_generator.cpp
-        filter.cpp
-        fixed_point.cpp)
+        filter.cpp)
 
 pico_set_program_name(pico-synth-sound "pico-synth-sound")
 pico_set_program_version(pico-synth-sound "0.1")
