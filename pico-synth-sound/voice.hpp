@@ -12,7 +12,7 @@
 #define VOICE_HPP
 
 #include "pico/stdlib.h"
-#include "include/fpm/fixed.hpp"
+#include "fixed_point.hpp"
 #include "oscillator.hpp"
 #include "envelope_generator.hpp"
 #include "filter.hpp"
@@ -31,9 +31,9 @@ public:
     /**
      * \brief Get current value
      *
-     * \return fpm::fixed_16_16 output
+     * \return Fixed_16_16 output
      */
-    fpm::fixed_16_16 get_value();
+    Fixed_16_16 get_value();
 
     /**
      * \brief Trigger the gate on, set \a state to Attack

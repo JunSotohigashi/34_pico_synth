@@ -12,7 +12,7 @@
 #define OSCILLATOR_HPP
 
 #include "pico/stdlib.h"
-#include "include/fpm/fixed.hpp"
+#include "fixed_point.hpp"
 
 /**
  * \brief Waveform type expression
@@ -37,9 +37,9 @@ public:
     /**
      * \brief Get current value
      *
-     * \return fpm::fixed_16_16 output
+     * \return Fixed_16_16 output
      */
-    fpm::fixed_16_16 get_value();
+    Fixed_16_16 get_value();
 
     /**
      * \brief Set the wave type

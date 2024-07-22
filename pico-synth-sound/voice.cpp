@@ -10,11 +10,11 @@ Voice::Voice()
 {
 }
 
-fpm::fixed_16_16 Voice::get_value()
+Fixed_16_16 Voice::get_value()
 {
-    fpm::fixed_16_16 half{0.5};
-    fpm::fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * half;
-    fpm::fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * half;
+    Fixed_16_16 half = Fixed_16_16::from_float(0.5f);
+    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * half;
+    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * half;
 
     return value1 + value2;
 }

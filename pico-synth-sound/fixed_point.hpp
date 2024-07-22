@@ -123,6 +123,12 @@ public:
         return raw_value == y.raw_value;
     }
 
+    // Unary negation
+    inline Fixed_16_16 operator-() const
+    {
+        return Fixed_16_16::from_raw_value(-raw_value);
+    }
+
 private:
 };
 

@@ -9,15 +9,6 @@
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
-#include "include/fpm/fixed.hpp"
-
-// fpm examples
-// fpm::fixed_16_16 f;
-// fpm::fixed_16_16 f{1};
-// fpm::fixed_16_16 f{3.14159265};
-// float f_float = static_cast<float>(f);
-// int32_t f_int32 = f.raw_value();
-
 // constants
 #define PIN_OUT_L 14
 #define PIN_OUT_R 15
@@ -163,28 +154,22 @@ void main_core0()
 
         if (input_cycle == 0)
         {
-            Fixed_16_16 x, y;
-            x.from_float(-0.5);
-            y.from_float(0.5);
-            printf("%08x %08x\n", x.raw_value, y.raw_value);
+            printf("Hello world\n");
         }
 
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
-        fpm::fixed_16_16 gain_unit{0.125};
-        fpm::fixed_16_16 voice_value = voice[0].get_value() * gain_unit + voice[1].get_value() * gain_unit;
+        Fixed_16_16 gain_unit = Fixed_16_16::from_float(0.125);
+        Fixed_16_16 voice_value = Fixed_16_16::from_raw_value(0);
+        for (uint8_t i = 0; i < n_voice; i++)
+        {
+            voice_value += voice[i].get_value();
+        }
 
-        uint32_t out_level = voice_value.raw_value() + 0x10000;
-        uint16_t out_level16;
-        if (out_level > 0x20000)
-        {
-            out_level16 = 0xFFFF;
-        }
-        else
-        {
-            out_level16 = out_level >> 1;
-        }
+        uint32_t out_level = voice_value.raw_value + 0x10000;   // remove sign
+        uint16_t out_level16 = out_level >> 1;
+
         uint16_t out_level_L = out_level16;
         uint16_t out_level_R = out_level16;
         // write to sound buffer

@@ -2,15 +2,22 @@
 #include "fixed_point.hpp"
 
 EG::EG()
-    : state(EGState::Ready)
+    : value(Fixed_16_16::from_int32(0)),
+      state(EGState::Ready),
+      attack(Fixed_16_16::from_float(0.5)),
+      decay(Fixed_16_16::from_float(0.5)),
+      sustain(Fixed_16_16::from_float(0.5)),
+      release(Fixed_16_16::from_float(0.5)),
+      tau(Fixed_16_16::from_float(40000.0))
 {
 }
 
-fpm::fixed_16_16 EG::get_value()
+Fixed_16_16 EG::get_value()
 {
-    fpm::fixed_16_16 zero{0};
-    fpm::fixed_16_16 one{1};
-    fpm::fixed_16_16 threshold{0.05};
+    Fixed_16_16 zero = Fixed_16_16::from_int32(0);
+    Fixed_16_16 one = Fixed_16_16::from_int32(1);
+    Fixed_16_16 epsilon = Fixed_16_16::from_raw_value(1);
+    Fixed_16_16 threshold = Fixed_16_16::from_float(0.01);
 
     if (state == EGState::Ready)
     {
@@ -26,7 +33,8 @@ fpm::fixed_16_16 EG::get_value()
         }
         else
         {
-            value += (one - value) * attack * tau;
+            Fixed_16_16 delta = (one - value) / (attack * tau);
+            value += delta == zero ? epsilon : delta;
             if (value + threshold > one)
             {
                 value = one;
@@ -44,7 +52,8 @@ fpm::fixed_16_16 EG::get_value()
         }
         else
         {
-            value -= (value - sustain) * decay * tau;
+            Fixed_16_16 delta = (value - sustain) / (decay * tau);
+            value -= delta == zero ? epsilon : delta;
             if (value + threshold < sustain)
             {
                 value = sustain;
@@ -67,7 +76,8 @@ fpm::fixed_16_16 EG::get_value()
         }
         else
         {
-            value -= value * release * tau;
+            Fixed_16_16 delta = value / (release * tau);
+            value -= delta == zero ? epsilon : delta;
         }
     }
 

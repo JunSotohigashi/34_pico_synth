@@ -11,14 +11,14 @@ Oscillator::Oscillator()
 {
 }
 
-fpm::fixed_16_16 Oscillator::get_value()
+Fixed_16_16 Oscillator::get_value()
 {
     phase16 += phase16_delta;
     wave_type_now = wave_type_next; // TODO: 0交差時に切り替え
 
-    fpm::fixed_16_16 one{1};
-    fpm::fixed_16_16 zero{0};
-    fpm::fixed_16_16 value;
+    Fixed_16_16 one = Fixed_16_16::from_int32(1);
+    Fixed_16_16 zero = Fixed_16_16::from_int32(0);
+    Fixed_16_16 value;
 
     switch (wave_type_now)
     {
