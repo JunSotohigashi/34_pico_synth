@@ -84,7 +84,7 @@ public:
      */
     void set_vco_duty(uint16_t duty);
 
-    void set_vcf_freq_res(float cutoff_freq, float resonance);
+    void set_vcf_freq_res(uint16_t cutoff, Fixed_16_16 resonance);
 
 private:
     Oscillator vco1;
@@ -93,6 +93,5 @@ private:
     Filter vcf;
     float vco2_tune; // Frequency offset for VCO2
 };
-
 
 #endif

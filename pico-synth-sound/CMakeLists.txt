@@ -65,11 +65,12 @@ target_include_directories(pico-synth-sound PRIVATE
 )
 
 # Add any user requested libraries
-target_link_libraries(pico-synth-sound 
-        hardware_pwm
-        hardware_interp
-        hardware_divider
+target_link_libraries(pico-synth-sound
         hardware_adc
+        hardware_clocks
+        hardware_divider
+        hardware_interp
+        hardware_pwm
         )
 
 pico_add_extra_outputs(pico-synth-sound)

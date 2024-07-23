@@ -3,11 +3,14 @@
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
-#include "hardware/pwm.h"
-#include "hardware/interp.h"
 #include "hardware/adc.h"
+#include "hardware/clocks.h"
+#include "hardware/interp.h"
+#include "hardware/pwm.h"
 #include "voice.hpp"
 #include "fixed_point.hpp"
+
+#include "table_wave.h"
 
 // constants
 #define PIN_OUT_L 14
@@ -52,6 +55,9 @@ bool timer_callback(repeating_timer_t *rt);
 
 int main()
 {
+    // overclock
+    set_sys_clock_khz(187500, true);
+    
     stdio_init_all();
 
     // オンボードLED
@@ -72,7 +78,7 @@ int main()
     // 出力音声のバッファー
     queue_init(&sound_buffer, sizeof(uint32_t), 64);
 
-    // PWM音声出力 約61kHz
+    // PWM音声出力 125MHzの時 約61kHz
     gpio_init(PIN_OUT_L);
     gpio_init(PIN_OUT_R);
     gpio_set_dir(PIN_OUT_L, GPIO_OUT);
@@ -148,16 +154,16 @@ void main_core0()
             btn1_old = btn1;
             btn2_old = btn2;
 
-            uint16_t vr1 = adc_read();
-            voice[0].set_vcf_freq_res(20.0f + 10000.0f * (float)vr1 / 4095.0f, 2.0f);
-            voice[1].set_vcf_freq_res(20.0f + 10000.0f * (float)vr1 / 4095.0f, 2.0f);
+            uint16_t vr1 = adc_read() << 4;
+            voice[0].set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
+            voice[1].set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
             // voice[0].set_vco_duty(vr1 << 3);
             // voice[1].set_vco_duty(vr1 << 3);
         }
 
         if (input_cycle == 0)
         {
-            printf("Hello world\n");
+            printf("Hello world!\n");
         }
 
         input_cycle = (input_cycle + 1) % 40000;

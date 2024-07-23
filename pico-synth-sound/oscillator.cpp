@@ -19,13 +19,13 @@ Fixed_16_16 Oscillator::get_value()
     switch (wave_type_now)
     {
     case WaveType::Saw:
-        return Fixed_16_16::from_raw_value(get_wave(wave_saw, phase16));
+        return get_wave(wave_saw, phase16);
 
     case WaveType::Sine:
-        return Fixed_16_16::from_raw_value(get_wave(wave_sine, phase16));
+        return get_wave(wave_sine, phase16);
 
     case WaveType::Triangle:
-        return Fixed_16_16::from_raw_value(get_wave(wave_triangle, phase16));
+        return get_wave(wave_triangle, phase16);
 
     case WaveType::Square:
         if (phase16 < duty)

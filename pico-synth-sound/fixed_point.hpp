@@ -14,45 +14,6 @@
 #include "pico/stdlib.h"
 #include "hardware/divider.h"
 
-inline int64_t div_s64_s64(int64_t a, int64_t b){
-    // 分子と分母の符号を取得
-    int sign_a = (a < 0) ? -1 : 1;
-    int sign_b = (b < 0) ? -1 : 1;
-    int sign_result = sign_a * sign_b;
-
-    // 分子と分母を正の値に変換
-    uint64_t abs_a = (a < 0) ? -a : a;
-    uint64_t abs_b = (b < 0) ? -b : b;
-
-    // 64ビット整数を32ビット整数に分割
-    uint32_t a_high = abs_a >> 32;
-    uint32_t a_low = abs_a & 0xFFFFFFFF;
-    uint32_t b_high = abs_b >> 32;
-    uint32_t b_low = abs_b & 0xFFFFFFFF;
-
-    // 結果を格納する変数
-    int64_t result = 0;
-
-    // 64ビット整数の除算
-    if (b_high == 0) {
-        // 分母の上位32ビットが0の場合、分子の64ビットを分母の下位32ビットで除算
-        uint64_t temp = ((uint64_t)a_high << 32) | a_low;
-        divmod_result_t result_low = hw_divider_divmod_s32(temp, b_low);
-        result = to_quotient_s32(result_low);
-    } else {
-        // 分母の上位32ビットが0でない場合、64ビット整数を32ビット整数に分割して除算
-        divmod_result_t result_high = hw_divider_divmod_s32(a_high, b_high);
-        uint64_t temp = ((uint64_t)to_remainder_s32(result_high) << 32) | a_low;
-        divmod_result_t result_low = hw_divider_divmod_s32(temp, b_low);
-        result = ((int64_t)to_quotient_s32(result_high) << 32) | (uint32_t)to_quotient_s32(result_low);
-    }
-
-    // 結果に符号を付ける
-    result *= sign_result;
-
-    return result;
-}
-
 class Fixed_16_16
 {
 public:
@@ -113,9 +74,16 @@ public:
     inline Fixed_16_16 operator/(Fixed_16_16 y) const
     {
         // Perform the division and adjust to 16.16 fixed-point
-        // int64_t result = (static_cast<int64_t>(raw_value) << 16) / y.raw_value;
-        int64_t result = div_s64_s64((static_cast<int64_t>(raw_value) << 16), y.raw_value);
-        return Fixed_16_16::from_raw_value(static_cast<int32_t>(result));
+        return Fixed_16_16::from_raw_value(static_cast<int32_t>((static_cast<int64_t>(raw_value) << 16) / y.raw_value));
+
+        // with hw-divider
+        // uint32_t abs_x = raw_value < 0 ? -raw_value : raw_value;
+        // uint32_t abs_y = y.raw_value < 0 ? -y.raw_value : y.raw_value;
+        // divmod_result_t qr = hw_divider_divmod_u32(abs_x << 16, abs_y);
+        // uint32_t q_abs = to_quotient_u32(qr);
+        // uint32_t r_abs = to_remainder_u32(qr);
+        // int32_t q = (raw_value < 0) ^ (y.raw_value < 0) ? -static_cast<int32_t>(q_abs) : static_cast<int32_t>(q_abs);
+        // return Fixed_16_16::from_raw_value(q);
     }
 
     inline Fixed_16_16 &operator+=(Fixed_16_16 y)
