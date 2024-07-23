@@ -71,8 +71,8 @@ void spi_callback()
 {
     uint16_t received;
     spi_read16_blocking(SPI_PORT_SOUND, 0, &received, 1);
-    if (received == 0xFFFF)
-        stream_index == 0;
+    if (received == 0xffff)
+        stream_index = 0;
     stream[stream_index] = received;
     stream_index = (stream_index + 1) % STREAM_LENGTH;
 }
