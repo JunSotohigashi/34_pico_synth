@@ -29,12 +29,11 @@
 #define PIN_TX_SOUND 19
 #define PIN_CS_SOUND 17
 
-#define DATA_LENGTH 53
+#define STREAM_LENGTH 34
 
 // global variablea
 queue_t sound_buffer;
-// int dma_rx;
-uint8_t stream[DATA_LENGTH];
+uint16_t stream[STREAM_LENGTH];
 volatile uint8_t stream_index = 0;
 
 // prototypes
@@ -70,13 +69,13 @@ bool timer_callback(repeating_timer_t *rt);
 
 void spi_callback()
 {
-    gpio_put(PICO_DEFAULT_LED_PIN, true);
-    spi_read_blocking(SPI_PORT_SOUND, 0, &stream[stream_index], 1);
-    stream_index = (stream_index + 1) % DATA_LENGTH;
-    gpio_put(PICO_DEFAULT_LED_PIN, false);
-    // dma_channel_set_read_addr(dma_rx, &spi_get_hw(SPI_PORT_SOUND)->dr, true);
+    uint16_t received;
+    spi_read16_blocking(SPI_PORT_SOUND, 0, &received, 1);
+    if (received == 0xFFFF)
+        stream_index == 0;
+    stream[stream_index] = received;
+    stream_index = (stream_index + 1) % STREAM_LENGTH;
 }
-
 
 int main()
 {
@@ -131,13 +130,14 @@ int main()
     // SPI
     spi_init(SPI_PORT_SOUND, 1000 * 1000);
     spi_set_slave(SPI_PORT_SOUND, true);
+    spi_set_format(SPI_PORT_SOUND, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     gpio_set_function(PIN_SCK_SOUND, GPIO_FUNC_SPI);
     gpio_set_function(PIN_TX_SOUND, GPIO_FUNC_SPI);
     gpio_set_function(PIN_RX_SOUND, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS_SOUND, GPIO_FUNC_SPI);
-    spi0_hw->imsc = 1 << 2; // Enable the RX FIFO interrupt (RXIM)
+    spi0_hw->imsc = SPI_SSPIMSC_RXIM_BITS; // Enable the RX FIFO interrupt (RXIM)
     irq_set_enabled(SPI0_IRQ, 1);
-    irq_set_exclusive_handler (SPI0_IRQ, spi_callback);
+    irq_set_exclusive_handler(SPI0_IRQ, spi_callback);
 
     // 処理開始
     multicore_launch_core1(main_core1);
@@ -202,9 +202,9 @@ void main_core0()
         {
             // printf("Hello world!\n");
 
-            for (uint8_t i = 0; i < DATA_LENGTH; i++)
+            for (uint8_t i = 0; i < STREAM_LENGTH; i++)
             {
-                printf("%02x", stream[i]);
+                printf("%04x", stream[i]);
             }
             printf("\n");
         }
@@ -241,13 +241,13 @@ bool timer_callback(repeating_timer_t *rt)
     // In case of no stream, do nothing
     if (queue_is_empty(&sound_buffer))
     {
-        // gpio_put(PICO_DEFAULT_LED_PIN, true);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
         return true;
     }
     // Pop value from the queue
     uint32_t out_level;
     queue_try_remove(&sound_buffer, &out_level);
-    // gpio_put(PICO_DEFAULT_LED_PIN, false);
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
     // Convert 0~65535(uint16) to 0~2047(uint11)
     pwm_set_gpio_level(PIN_OUT_R, (out_level >> 5) & 0x7FF);
     pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16 >> 5) & 0x7FF);

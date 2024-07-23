@@ -5,7 +5,7 @@
 #include "selector.hpp"
 #include "spi_mcp3008.hpp"
 
-// SPI Defines
+// SPI to ADC and LED
 #define SPI_PORT_PANEL spi0
 #define PIN_SCK_PANEL 18
 #define PIN_MOSI_PANEL 19
@@ -17,11 +17,13 @@
 #define PIN_CS_SR_LFO_LOW 4
 #define PIN_CS_SR_UNIT_HIGH 5
 #define PIN_CS_SR_VCO 6
+// SPI to sound unit
 #define SPI_PORT_SOUND spi1
 #define PIN_SCK_SOUND 14
 #define PIN_MOSI_SOUND 15
 #define PIN_MISO_SOUND 12
 #define PIN_CS_SOUND 13
+#define STREAM_LENGTH 34
 // UART
 #define UART_PORT uart0
 #define PIN_UART_TX 0
@@ -118,6 +120,7 @@ int main()
     gpio_set_function(PIN_MOSI_PANEL, GPIO_FUNC_SPI);
 
     spi_init(SPI_PORT_SOUND, 1000 * 1000);
+    spi_set_format(SPI_PORT_SOUND, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     gpio_set_function(PIN_MISO_SOUND, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SCK_SOUND, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI_SOUND, GPIO_FUNC_SPI);
@@ -165,70 +168,55 @@ int main()
 
     while (true)
     {
+        // read switches and switch each mode
         sel_vco1.update();
         sel_vco2.update();
         sel_vcf.update();
         sel_lfo_wave.update();
         sel_lfo_target.update();
 
+        // apply unit led
         led_unit_high.put_8bit((unit_state & 0xFF) << 1 | (unit_state & 0xFF) >> 7);
         led_unit_low.put_8bit((unit_state >> 8 & 0xFF) << 1 | (unit_state >> 8 & 0xFF) >> 7);
 
-        uint8_t stream[54];
+        // create message to sound unit
+        uint16_t stream[STREAM_LENGTH];
+        stream[0] = 0xFFFF; // header
         sem_acquire_blocking(&sem);
         for (uint8_t ch = 0; ch < 16; ch++)
         {
-            stream[ch * 2] = ((unit_state >> ch) & 1) << 7 | unit_note[ch];
-            stream[ch * 2 + 1] = unit_velocity[ch];
+            stream[ch + 1] = ((unit_state >> ch) & 1) << 15 | unit_note[ch] << 8 | unit_velocity[ch];
         }
         sem_release(&sem);
-        uint16_t duty = adc1.read(2);
-        uint16_t tune2 = adc1.read(3);
-        uint16_t mix = adc1.read(1);
-        uint16_t cutoff = adc1.read(0);
-        uint16_t resonanse = adc1.read(7);
-        uint16_t vcf_a = adc1.read(6);
-        uint16_t vcf_d = adc1.read(5);
-        uint16_t vcf_s = adc2.read(7);
-        uint16_t vcf_r = adc1.read(4);
-        uint16_t vca_a = adc2.read(6);
-        uint16_t vca_d = adc2.read(5);
-        uint16_t vca_s = adc2.read(4);
-        uint16_t vca_r = adc2.read(3);
-        uint16_t vca_gain = adc2.read(2);
-        uint16_t lfo_speed = adc2.read(1);
-        uint16_t lfo_depth = adc2.read(0);
-        stream[32] = sel_vco1.get_state() << 6 | sel_vco2.get_state() << 4 | duty >> 6;
-        stream[33] = duty << 2 | tune2 >> 8;
-        stream[34] = tune2;
-        stream[35] = mix >> 2;
-        stream[36] = mix << 6 | cutoff >> 4;
-        stream[37] = cutoff << 4 | resonanse >> 6;
-        stream[38] = resonanse << 2 | vcf_a >> 8;
-        stream[39] = vcf_a;
-        stream[40] = sel_vcf.get_state() << 6 | vcf_d >> 4;
-        stream[41] = vcf_d << 4 | vcf_s >> 6;
-        stream[42] = vcf_s << 2 | vcf_r >> 8;
-        stream[43] = vcf_r;
-        stream[44] = vca_a >> 4;
-        stream[45] = vca_a << 4 | vca_d >> 6;
-        stream[46] = vca_d << 2 | vca_s >> 8;
-        stream[47] = vca_s;
-        stream[48] = vca_r >> 2;
-        stream[49] = vca_r << 6 | vca_gain >> 4;
-        stream[50] = vca_gain << 4 | lfo_speed >> 8;
-        stream[51] = lfo_speed;
-        stream[52] = sel_lfo_wave.get_state() << 5 | sel_lfo_target.get_state() << 2 | lfo_depth >> 8;
-        stream[53] = lfo_depth;
-        for (uint8_t i = 0; i < 53; i++)
+        stream[17] = sel_vco1.get_state() << 10 | sel_vco2.get_state() << 8 | sel_vcf.get_state() << 7 | sel_lfo_wave.get_state() << 3 | sel_lfo_target.get_state();
+        stream[18] = adc1.read(2); // vco duty
+        stream[19] = adc1.read(3); // vco2 tune
+        stream[20] = adc1.read(1); // vco mix
+        stream[21] = adc1.read(0); // vcf cutoff
+        stream[22] = adc1.read(7); // vcf resonanse
+        stream[23] = adc1.read(6); // vcf attack
+        stream[24] = adc1.read(5); // vcf decay
+        stream[25] = adc2.read(7); // vcf sustain
+        stream[26] = adc1.read(4); // vcf release
+        stream[27] = adc2.read(6); // vca attack
+        stream[28] = adc2.read(5); // vca decay
+        stream[29] = adc2.read(4); // vca sustain
+        stream[30] = adc2.read(3); // vca release
+        stream[31] = adc2.read(2); // vca gain
+        stream[32] = adc2.read(1); // lfo speed
+        stream[33] = adc2.read(0); // lfo depth
+        
+        for (uint8_t i = 0; i < STREAM_LENGTH; i++)
         {
             gpio_put(PIN_CS_SOUND, false);
-            spi_write_blocking(SPI_PORT_SOUND, &stream[i], 1);
+            sleep_us(10);
+            spi_write16_blocking(SPI_PORT_SOUND, &stream[i], 1);
+            sleep_us(10);
             gpio_put(PIN_CS_SOUND, true);
         }
-        for (uint8_t i = 0; i < 53; i++)
+        for (uint8_t i = 0; i < STREAM_LENGTH; i++)
         {
-            printf("%02x", stream[i]);
+            printf("%04x", stream[i]);
         }
         printf("\n");
     }
