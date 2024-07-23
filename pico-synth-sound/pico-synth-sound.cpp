@@ -1,12 +1,16 @@
 #include <stdio.h>
 #include <cmath>
 #include "pico/stdlib.h"
+#include "pico/binary_info.h"
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
 #include "hardware/adc.h"
 #include "hardware/clocks.h"
+#include "hardware/dma.h"
 #include "hardware/interp.h"
 #include "hardware/pwm.h"
+#include "hardware/spi.h"
+#include "hardware/irq.h"
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
@@ -19,8 +23,19 @@
 #define PIN_BTN_2 13
 #define PIN_VR_1 26
 
+#define SPI_PORT_SOUND spi0
+#define PIN_SCK_SOUND 18
+#define PIN_RX_SOUND 16
+#define PIN_TX_SOUND 19
+#define PIN_CS_SOUND 17
+
+#define DATA_LENGTH 53
+
 // global variablea
 queue_t sound_buffer;
+// int dma_rx;
+uint8_t stream[DATA_LENGTH];
+volatile uint8_t stream_index = 0;
 
 // prototypes
 /**
@@ -53,11 +68,21 @@ void main_core1();
  */
 bool timer_callback(repeating_timer_t *rt);
 
+void spi_callback()
+{
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
+    spi_read_blocking(SPI_PORT_SOUND, 0, &stream[stream_index], 1);
+    stream_index = (stream_index + 1) % DATA_LENGTH;
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
+    // dma_channel_set_read_addr(dma_rx, &spi_get_hw(SPI_PORT_SOUND)->dr, true);
+}
+
+
 int main()
 {
     // overclock
     set_sys_clock_khz(187500, true);
-    
+
     stdio_init_all();
 
     // オンボードLED
@@ -103,6 +128,17 @@ int main()
     interp_config_set_signed(&interp_cfg, true);
     interp_set_config(interp0, 1, &interp_cfg);
 
+    // SPI
+    spi_init(SPI_PORT_SOUND, 1000 * 1000);
+    spi_set_slave(SPI_PORT_SOUND, true);
+    gpio_set_function(PIN_SCK_SOUND, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_TX_SOUND, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_RX_SOUND, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_CS_SOUND, GPIO_FUNC_SPI);
+    spi0_hw->imsc = 1 << 2; // Enable the RX FIFO interrupt (RXIM)
+    irq_set_enabled(SPI0_IRQ, 1);
+    irq_set_exclusive_handler (SPI0_IRQ, spi_callback);
+
     // 処理開始
     multicore_launch_core1(main_core1);
     main_core0();
@@ -130,6 +166,7 @@ void main_core0()
 
     while (true)
     {
+
         if (input_cycle % 400 == 0)
         {
             bool btn1 = !gpio_get(PIN_BTN_1);
@@ -163,7 +200,13 @@ void main_core0()
 
         if (input_cycle == 0)
         {
-            printf("Hello world!\n");
+            // printf("Hello world!\n");
+
+            for (uint8_t i = 0; i < DATA_LENGTH; i++)
+            {
+                printf("%02x", stream[i]);
+            }
+            printf("\n");
         }
 
         input_cycle = (input_cycle + 1) % 40000;
@@ -198,13 +241,13 @@ bool timer_callback(repeating_timer_t *rt)
     // In case of no stream, do nothing
     if (queue_is_empty(&sound_buffer))
     {
-        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        // gpio_put(PICO_DEFAULT_LED_PIN, true);
         return true;
     }
     // Pop value from the queue
     uint32_t out_level;
     queue_try_remove(&sound_buffer, &out_level);
-    gpio_put(PICO_DEFAULT_LED_PIN, false);
+    // gpio_put(PICO_DEFAULT_LED_PIN, false);
     // Convert 0~65535(uint16) to 0~2047(uint11)
     pwm_set_gpio_level(PIN_OUT_R, (out_level >> 5) & 0x7FF);
     pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16 >> 5) & 0x7FF);

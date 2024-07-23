@@ -222,13 +222,14 @@ int main()
         stream[53] = lfo_depth;
         for (uint8_t i = 0; i < 53; i++)
         {
+            gpio_put(PIN_CS_SOUND, false);
+            spi_write_blocking(SPI_PORT_SOUND, &stream[i], 1);
+            gpio_put(PIN_CS_SOUND, true);
+        }
+        for (uint8_t i = 0; i < 53; i++)
+        {
             printf("%02x", stream[i]);
         }
         printf("\n");
-        gpio_put(PIN_CS_SOUND, false);
-        sleep_us(50);
-        spi_write_blocking(SPI_PORT_SOUND, stream, 53);
-        sleep_us(50);
-        gpio_put(PIN_CS_SOUND, true);
     }
 }
