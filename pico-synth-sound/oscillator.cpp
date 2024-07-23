@@ -16,27 +16,16 @@ Fixed_16_16 Oscillator::get_value()
     phase16 += phase16_delta;
     wave_type_now = wave_type_next; // TODO: 0交差時に切り替え
 
-    Fixed_16_16 value;
-
     switch (wave_type_now)
     {
     case WaveType::Saw:
-        interp0->base[0] = wave_saw[phase16 >> 8];
-        interp0->base[1] = wave_saw[(phase16 + 1) >> 8];
-        interp0->accum[1] = phase16 & 0xFF;
-        return value.from_raw_value(interp0->peek[1]);
+        return Fixed_16_16::from_raw_value(get_wave(wave_saw, phase16));
 
     case WaveType::Sine:
-        interp0->base[0] = wave_sine[phase16 >> 8];
-        interp0->base[1] = wave_sine[(phase16 + 1) >> 8];
-        interp0->accum[1] = phase16 & 0xFF;
-        return value.from_raw_value(interp0->peek[1]);
+        return Fixed_16_16::from_raw_value(get_wave(wave_sine, phase16));
 
     case WaveType::Triangle:
-        interp0->base[0] = wave_triangle[phase16 >> 8];
-        interp0->base[1] = wave_triangle[(phase16 + 1) >> 8];
-        interp0->accum[1] = phase16 & 0xFF;
-        return value.from_raw_value(interp0->peek[1]);
+        return Fixed_16_16::from_raw_value(get_wave(wave_triangle, phase16));
 
     case WaveType::Square:
         if (phase16 < duty)
