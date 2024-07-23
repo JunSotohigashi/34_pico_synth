@@ -146,62 +146,63 @@ int main()
 
 void main_core0()
 {
-    uint8_t n_voice = 2;
+    Voice voice1;
+    Voice voice2;
 
-    Voice voice[n_voice];
-    for (uint8_t i = 0; i < n_voice; i++)
-    {
-        voice[i].set_vco1_wave_type(WaveType::Saw);
-        voice[i].set_vco2_wave_type(WaveType::Saw);
-    }
+    // Voice voice[n_voice];
+    // for (uint8_t i = 0; i < n_voice; i++)
+    // {
+    //     voice[i].set_vco1_wave_type(WaveType::Saw);
+    //     voice[i].set_vco2_wave_type(WaveType::Saw);
+    // }
 
-    voice[0].set_vco_freq_note_number(36);
-    voice[1].set_vco_freq_note_number(52);
 
-    bool btn1_old = false;
-    bool btn2_old = false;
+    bool gate1_old = false;
+    bool gate2_old = false;
 
     uint16_t input_cycle = 0;
     Fixed_16_16 gain_unit = Fixed_16_16::from_float(0.5);
 
     while (true)
     {
-
         if (input_cycle % 400 == 0)
         {
-            bool btn1 = !gpio_get(PIN_BTN_1);
-            bool btn2 = !gpio_get(PIN_BTN_2);
-            if (!btn1_old && btn1)
+            // unit 割り当てはここで変更
+            bool gate1 = stream[1] >> 15;
+            bool gate2 = stream[2] >> 15;
+            if (!gate1_old && gate1)
             {
-                voice[0].gate_on();
+                voice1.set_vco_freq_note_number(stream[1] >> 8 & 127);
+                voice1.gate_on();
             }
-            if (!btn2_old && btn2)
+            if (!gate2_old && gate2)
             {
-                voice[1].gate_on();
+                voice2.set_vco_freq_note_number(stream[2] >> 8 & 127);
+                voice2.gate_on();
             }
-            if (btn1_old && !btn1)
+            if (gate1_old && !gate1)
             {
-                voice[0].gate_off();
+                voice1.gate_off();
             }
-            if (btn2_old && !btn2)
+            if (gate2_old && !gate2)
             {
-                voice[1].gate_off();
+                voice2.gate_off();
             }
+            gate1_old = gate1;
+            gate2_old = gate2;
 
-            btn1_old = btn1;
-            btn2_old = btn2;
+            voice1.set_vco1_wave_type(static_cast<WaveType>(stream[17] >> 10 & 3));
+            voice1.set_vco2_wave_type(static_cast<WaveType>(stream[17] >> 8 & 3));
+            voice2.set_vco1_wave_type(static_cast<WaveType>(stream[17] >> 10 & 3));
+            voice2.set_vco2_wave_type(static_cast<WaveType>(stream[17] >> 8 & 3));
 
             uint16_t vr1 = adc_read() << 4;
-            voice[0].set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
-            voice[1].set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
-            // voice[0].set_vco_duty(vr1 << 3);
-            // voice[1].set_vco_duty(vr1 << 3);
+            voice1.set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
+            voice2.set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
         }
 
         if (input_cycle == 0)
         {
-            // printf("Hello world!\n");
-
             for (uint8_t i = 0; i < STREAM_LENGTH; i++)
             {
                 printf("%04x", stream[i]);
@@ -212,12 +213,8 @@ void main_core0()
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
-        Fixed_16_16 voice_value = Fixed_16_16::zero;
-        for (uint8_t i = 0; i < n_voice; i++)
-        {
-            voice_value += voice[i].get_value() * gain_unit;
-        }
-
+        Fixed_16_16 voice_value = (voice1.get_value() + voice2.get_value()) * gain_unit;
+        
         uint32_t out_level = voice_value.raw_value + 0x10000; // remove sign
         uint16_t out_level16 = out_level >> 2;
 
