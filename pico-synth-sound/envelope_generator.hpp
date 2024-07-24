@@ -55,14 +55,17 @@ public:
      */
     void gate_off();
 
+    void set_adsr(Fixed_16_16 attack, Fixed_16_16 decay, Fixed_16_16 sustain, Fixed_16_16 release);
+
 private:
-    Fixed_16_16 value; // Current gain
-    EGState state;    // Current EG state
+    Fixed_16_16 value;   // Current gain
+    EGState state;       // Current EG state
+    EGState state_old;   // Previous EG state
     Fixed_16_16 attack;  // Attack time
     Fixed_16_16 decay;   // Decay time
     Fixed_16_16 sustain; // Sustin level
     Fixed_16_16 release; // Release time
-    Fixed_16_16 tau;     // Time constant for rate of change
+    Fixed_16_16 tau;
     uint16_t cycle;
 };
 

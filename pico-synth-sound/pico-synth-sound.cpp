@@ -156,7 +156,6 @@ void main_core0()
     //     voice[i].set_vco2_wave_type(WaveType::Saw);
     // }
 
-
     bool gate1_old = false;
     bool gate2_old = false;
 
@@ -165,9 +164,10 @@ void main_core0()
 
     while (true)
     {
+        // 100Hz cycle
         if (input_cycle % 400 == 0)
         {
-            // unit 割り当てはここで変更
+            // gate and note control
             bool gate1 = stream[1] >> 15;
             bool gate2 = stream[2] >> 15;
             if (!gate1_old && gate1)
@@ -191,16 +191,46 @@ void main_core0()
             gate1_old = gate1;
             gate2_old = gate2;
 
-            voice1.set_vco1_wave_type(static_cast<WaveType>(stream[17] >> 10 & 3));
-            voice1.set_vco2_wave_type(static_cast<WaveType>(stream[17] >> 8 & 3));
-            voice2.set_vco1_wave_type(static_cast<WaveType>(stream[17] >> 10 & 3));
-            voice2.set_vco2_wave_type(static_cast<WaveType>(stream[17] >> 8 & 3));
+            // VCO wavetype select
+            WaveType vco1_wave = static_cast<WaveType>(stream[17] >> 10 & 3);
+            WaveType vco2_wave = static_cast<WaveType>(stream[17] >> 8 & 3);
+            voice1.set_vco1_wave_type(vco1_wave);
+            voice1.set_vco2_wave_type(vco2_wave);
+            voice2.set_vco1_wave_type(vco1_wave);
+            voice2.set_vco2_wave_type(vco2_wave);
 
-            uint16_t vr1 = adc_read() << 4;
-            voice1.set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
-            voice2.set_vcf_freq_res(vr1, Fixed_16_16::one + Fixed_16_16::one);
+            // VCO square wave duty control
+            uint16_t vco_duty = (stream[18] << 5) + 200;
+            voice1.set_vco_duty(vco_duty);
+            voice2.set_vco_duty(vco_duty);
+
+            // VCO2 tune control
+            float vco2_tune = powf(2.0f, powf((static_cast<float>(stream[19]) - 512.0f) / 512.0f, 3.0f)); // 0->0.5, 512->1.0, 1024->2.0, fine tuning near center
+            voice1.set_vco2_tune(vco2_tune);
+            voice2.set_vco2_tune(vco2_tune);
+
+            // VCO mixture control
+            uint16_t vco_mix = stream[20] << 6;
+            voice1.set_vco_mix(vco_mix);
+            voice2.set_vco_mix(vco_mix);
+
+            // VCF type, cutoff frequency and resonance control
+            bool vcf_is_hpf = (stream[17] >> 7) & 1;
+            uint16_t vcf_freq = stream[21] << 5;
+            Fixed_16_16 vcf_res = Fixed_16_16::from_raw_value((static_cast<int32_t>(stream[22]) << 9) + 46341); // Q>=1/sqrt(2)
+            voice1.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
+            voice2.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
+
+            // VCA EG
+            uint16_t attack = stream[27] >> 2 << 8; // forces 0~3 to 0
+            uint16_t decay = stream[28] >> 2 << 8;
+            uint16_t sustain = stream[29] << 6;
+            uint16_t release = stream[30] >> 2 << 8;
+            voice1.set_vca_eg(attack, decay, sustain, release);
+            voice2.set_vca_eg(attack, decay, sustain, release);
         }
 
+        // 1Hz cycle
         if (input_cycle == 0)
         {
             for (uint8_t i = 0; i < STREAM_LENGTH; i++)
@@ -214,7 +244,7 @@ void main_core0()
 
         // get sound value
         Fixed_16_16 voice_value = (voice1.get_value() + voice2.get_value()) * gain_unit;
-        
+
         uint32_t out_level = voice_value.raw_value + 0x10000; // remove sign
         uint16_t out_level16 = out_level >> 2;
 

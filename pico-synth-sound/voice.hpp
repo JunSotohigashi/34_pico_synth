@@ -75,6 +75,8 @@ public:
      */
     void set_vco_freq_note_number(uint8_t note);
 
+    void set_vco2_tune(float tune);
+
     /**
      * \brief Set the duty ratio for Square wave
      *
@@ -84,14 +86,20 @@ public:
      */
     void set_vco_duty(uint16_t duty);
 
-    void set_vcf_freq_res(uint16_t cutoff, Fixed_16_16 resonance);
+    void set_vco_mix(uint16_t mix);
+
+    void set_vcf_freq_res(bool is_hpf, uint16_t cutoff, Fixed_16_16 resonance);
+
+    void set_vca_eg(uint16_t attack, uint16_t decay, uint16_t sustain, uint16_t release);
 
 private:
     Oscillator vco1;
     Oscillator vco2;
     EG vca_eg;
     Filter vcf;
-    float vco2_tune; // Frequency offset for VCO2
+    float vco_freq;
+    float vco2_tune;
+    Fixed_16_16 vco_mix;
 };
 
 #endif

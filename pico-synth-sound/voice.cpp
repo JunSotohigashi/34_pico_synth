@@ -7,16 +7,15 @@ Voice::Voice()
       vco2(Oscillator()),
       vca_eg(EG()),
       vcf(Filter()),
-      vco2_tune(1.0)
+      vco2_tune(1.0),
+      vco_mix(Fixed_16_16::from_float(0.5f))
 {
 }
 
 Fixed_16_16 Voice::get_value()
 {
-    Fixed_16_16 half = Fixed_16_16::from_float(0.5f);
-    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * half;
-    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * half;
-
+    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * (Fixed_16_16::one - vco_mix * vco_mix);                                           // y = 1-x^2
+    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * (Fixed_16_16::one - (Fixed_16_16::one - vco_mix) * (Fixed_16_16::one - vco_mix)); // y = 1-(1-x)^2
     return vcf.get_value(value1 + value2);
 }
 
@@ -42,14 +41,22 @@ void Voice::set_vco2_wave_type(WaveType wave_type)
 
 void Voice::set_vco_freq(float freq)
 {
-    vco1.set_phase16_delta(freq * 65536.0f / 40000.0f);
-    vco2.set_phase16_delta((freq + vco2_tune) * 65536.0f / 40000.0f);
+    vco_freq = freq;
+    vco1.set_phase16_delta(vco_freq * 65536.0f / 40000.0f);
+    vco2.set_phase16_delta((vco_freq * vco2_tune) * 65536.0f / 40000.0f);
 }
 
 void Voice::set_vco_freq_note_number(uint8_t note)
 {
-    vco1.set_phase16_delta(note_freq[note & 0b1111111] * 65536.0f / 40000.0f);
-    vco2.set_phase16_delta((note_freq[note & 0b1111111] + vco2_tune) * 65536.0f / 40000.0f);
+    vco_freq = note_freq[note & 0b1111111];
+    vco1.set_phase16_delta(vco_freq * 65536.0f / 40000.0f);
+    vco2.set_phase16_delta((vco_freq * vco2_tune) * 65536.0f / 40000.0f);
+}
+
+void Voice::set_vco2_tune(float tune)
+{
+    vco2_tune = tune;
+    vco2.set_phase16_delta((vco_freq * vco2_tune) * 65536.0f / 40000.0f);
 }
 
 void Voice::set_vco_duty(uint16_t duty)
@@ -58,7 +65,22 @@ void Voice::set_vco_duty(uint16_t duty)
     vco2.set_duty(duty);
 }
 
-void Voice::set_vcf_freq_res(uint16_t cutoff, Fixed_16_16 resonance)
+void Voice::set_vco_mix(uint16_t mix)
 {
-   vcf.set_filter(cutoff, resonance);
+    vco_mix = Fixed_16_16::from_raw_value(mix);
+}
+
+void Voice::set_vcf_freq_res(bool is_hpf, uint16_t cutoff, Fixed_16_16 resonance)
+{
+    vcf.set_filter_type(is_hpf);
+    vcf.set_filter(cutoff, resonance);
+}
+
+void Voice::set_vca_eg(uint16_t attack, uint16_t decay, uint16_t sustain, uint16_t release)
+{
+    Fixed_16_16 a = Fixed_16_16::from_raw_value(attack);
+    Fixed_16_16 d = Fixed_16_16::from_raw_value(decay);
+    Fixed_16_16 s = Fixed_16_16::from_raw_value(sustain);
+    Fixed_16_16 r = Fixed_16_16::from_raw_value(release);
+    vca_eg.set_adsr(a * a, d * d, s, r * r);
 }

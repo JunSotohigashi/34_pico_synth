@@ -6,10 +6,12 @@
 EG::EG()
     : value(Fixed_16_16::zero),
       state(EGState::Ready),
+      state_old(EGState::Ready),
       attack(Fixed_16_16::from_float(0.008)),
       decay(Fixed_16_16::from_float(0.001)),
       sustain(Fixed_16_16::from_float(0.5)),
       release(Fixed_16_16::from_float(0.001)),
+      tau((Fixed_16_16::from_float(1.0f / (5.0f * 400.0f)))), // 5.0s for slope, 400.0Hz cycle
       cycle(0)
 {
 }
@@ -18,8 +20,6 @@ Fixed_16_16 EG::get_value()
 {
     if (cycle == 0)
     {
-        Fixed_16_16 threshold = Fixed_16_16::from_float(0.01);
-
         if (state == EGState::Ready)
         {
             value = Fixed_16_16::zero;
@@ -34,13 +34,16 @@ Fixed_16_16 EG::get_value()
             }
             else
             {
-                if (Fixed_16_16::one - value < attack)
+                Fixed_16_16 delta = tau / attack;
+                if (Fixed_16_16::one - value < delta)
                 {
                     value = Fixed_16_16::one;
                     state = EGState::Decay;
                 }
+                else if (delta == Fixed_16_16::zero)
+                    value += Fixed_16_16::epsilon;
                 else
-                    value += attack;
+                    value += delta;
             }
         }
 
@@ -53,13 +56,16 @@ Fixed_16_16 EG::get_value()
             }
             else
             {
-                if (value - sustain < decay)
+                Fixed_16_16 delta = tau * (Fixed_16_16::one - sustain) / decay;
+                if (value - sustain < delta)
                 {
                     value = sustain;
                     state = EGState::Sustain;
                 }
+                else if (delta == Fixed_16_16::zero)
+                    value -= Fixed_16_16::epsilon;
                 else
-                    value -= decay;
+                    value -= delta;
             }
         }
 
@@ -70,17 +76,37 @@ Fixed_16_16 EG::get_value()
 
         if (state == EGState::Release)
         {
-            if (value < release)
+            if (state_old != EGState::Release && value > sustain)
+                value = sustain;
+                
+            if (release == Fixed_16_16::zero)
             {
                 value = Fixed_16_16::zero;
                 state = EGState::Ready;
             }
             else
-                value -= release;
+            {
+                Fixed_16_16 delta = tau * sustain / release;
+                if (value < delta)
+                {
+                    value = Fixed_16_16::zero;
+                    state = EGState::Ready;
+                }
+                else if (delta == Fixed_16_16::zero)
+                    value -= Fixed_16_16::epsilon;
+                else
+                    value -= delta;
+            }
         }
+
+        if (value > Fixed_16_16::one)
+            value = Fixed_16_16::one;
+        if (value < Fixed_16_16::zero)
+            value = Fixed_16_16::zero;
     }
 
     cycle = (cycle + 1) % CYCLE_DIV;
+    state_old = state;
 
     return value;
 }
@@ -93,4 +119,12 @@ void EG::gate_on()
 void EG::gate_off()
 {
     state = EGState::Release;
+}
+
+void EG::set_adsr(Fixed_16_16 attack, Fixed_16_16 decay, Fixed_16_16 sustain, Fixed_16_16 release)
+{
+    this->attack = attack;
+    this->decay = decay;
+    this->sustain = sustain;
+    this->release = release;
 }
