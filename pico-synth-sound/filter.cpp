@@ -11,7 +11,7 @@ void Filter::set_filter(uint16_t cutoff, Fixed_16_16 resonance)
 {
     if (filter_type == FilterType::LPF)
     {
-        uint16_t omega = cutoff >> 1;
+        uint16_t omega = ((uint32_t)cutoff * (uint32_t)cutoff) >> 16;
         Fixed_16_16 two = Fixed_16_16::one + Fixed_16_16::one;
         Fixed_16_16 sin_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega));
         Fixed_16_16 cos_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega + (uint16_t)16384));
@@ -30,7 +30,7 @@ void Filter::set_filter(uint16_t cutoff, Fixed_16_16 resonance)
     }
     else if (filter_type == FilterType::HPF)
     {
-        uint16_t omega = cutoff >> 1;
+        uint16_t omega = ((uint32_t)cutoff * (uint32_t)cutoff) >> 16;
         Fixed_16_16 two = Fixed_16_16::one + Fixed_16_16::one;
         Fixed_16_16 sin_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega));
         Fixed_16_16 cos_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega + (uint16_t)16384));
