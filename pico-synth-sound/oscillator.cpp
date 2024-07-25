@@ -1,5 +1,5 @@
 #include "oscillator.hpp"
-#include "table_wave.h"
+#include "table_wave_auto.h"
 #include "hardware/interp.h"
 
 Oscillator::Oscillator()
@@ -19,13 +19,13 @@ Fixed_16_16 Oscillator::get_value()
     switch (wave_type_now)
     {
     case WaveType::Saw:
-        return get_wave(wave_saw, phase16);
+        return get_wave_saw(phase16, phase16_delta);
 
     case WaveType::Sine:
-        return get_wave(wave_sine, phase16);
+        return get_wave_sine(phase16);
 
     case WaveType::Triangle:
-        return get_wave(wave_triangle, phase16);
+        return get_wave_tri(phase16, phase16_delta);
 
     case WaveType::Square:
         if (phase16 < duty)
