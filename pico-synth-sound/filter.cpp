@@ -1,5 +1,5 @@
 #include "filter.hpp"
-#include "table_wave.h"
+#include "table_wave_auto.h"
 
 Filter::Filter()
     : filter_type(FilterType::LPF)
@@ -13,8 +13,8 @@ void Filter::set_filter(uint16_t cutoff, Fixed_16_16 resonance)
     {
         uint16_t omega = cutoff >> 1;
         Fixed_16_16 two = Fixed_16_16::one + Fixed_16_16::one;
-        Fixed_16_16 sin_omega = get_wave(wave_sine, omega);
-        Fixed_16_16 cos_omega = get_wave(wave_sine, omega + (uint16_t)16384);
+        Fixed_16_16 sin_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega));
+        Fixed_16_16 cos_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega + (uint16_t)16384));
         Fixed_16_16 alpha = sin_omega / (two * resonance);
         Fixed_16_16 a0 = Fixed_16_16::one + alpha;
         Fixed_16_16 a1 = -two * cos_omega;
@@ -32,8 +32,8 @@ void Filter::set_filter(uint16_t cutoff, Fixed_16_16 resonance)
     {
         uint16_t omega = cutoff >> 1;
         Fixed_16_16 two = Fixed_16_16::one + Fixed_16_16::one;
-        Fixed_16_16 sin_omega = get_wave(wave_sine, omega);
-        Fixed_16_16 cos_omega = get_wave(wave_sine, omega + (uint16_t)16384);
+        Fixed_16_16 sin_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega));
+        Fixed_16_16 cos_omega = Fixed_16_16::from_raw_value(pick_table(wave_sine, omega + (uint16_t)16384));
         Fixed_16_16 alpha = sin_omega / (two * resonance);
         Fixed_16_16 a0 = Fixed_16_16::one + alpha;
         Fixed_16_16 a1 = -two * cos_omega;

@@ -14,8 +14,6 @@
 #include "voice.hpp"
 #include "fixed_point.hpp"
 
-#include "table_wave.h"
-
 // constants
 #define PIN_OUT_L 14
 #define PIN_OUT_R 15
