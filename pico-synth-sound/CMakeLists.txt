@@ -66,9 +66,7 @@ target_include_directories(pico-synth-sound PRIVATE
 
 # Add any user requested libraries
 target_link_libraries(pico-synth-sound
-        hardware_adc
         hardware_clocks
-        hardware_dma
         hardware_divider
         hardware_interp
         hardware_pwm

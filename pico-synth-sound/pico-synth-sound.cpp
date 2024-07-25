@@ -1,12 +1,9 @@
 #include <stdio.h>
 #include <cmath>
 #include "pico/stdlib.h"
-#include "pico/binary_info.h"
 #include "pico/util/queue.h"
 #include "pico/multicore.h"
-#include "hardware/adc.h"
 #include "hardware/clocks.h"
-#include "hardware/dma.h"
 #include "hardware/interp.h"
 #include "hardware/pwm.h"
 #include "hardware/spi.h"
@@ -93,9 +90,6 @@ int main()
     gpio_set_dir(PIN_BTN_2, GPIO_IN);
     gpio_set_pulls(PIN_BTN_1, true, false);
     gpio_set_pulls(PIN_BTN_2, true, false);
-    adc_init();
-    adc_gpio_init(PIN_VR_1);
-    adc_select_input(0);
 
     // 出力音声のバッファー
     queue_init(&sound_buffer, sizeof(uint32_t), 64);
