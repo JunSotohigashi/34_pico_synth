@@ -28,10 +28,7 @@ Fixed_16_16 Oscillator::get_value()
         return get_wave_tri(phase16, phase16_delta);
 
     case WaveType::Square:
-        if (phase16 < duty)
-            return Fixed_16_16::one;
-        else
-            return -Fixed_16_16::one;
+        return get_wave_saw(phase16, phase16_delta) - get_wave_saw(phase16 + duty, phase16_delta);
 
     default:
         break;

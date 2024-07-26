@@ -75,7 +75,7 @@ void spi_callback()
 int main()
 {
     // overclock
-    set_sys_clock_khz(187500, true);
+    set_sys_clock_khz(200000, true);
 
     stdio_init_all();
 
@@ -223,14 +223,14 @@ void main_core0()
         }
 
         // 1Hz cycle
-        if (input_cycle == 0)
-        {
-            for (uint8_t i = 0; i < STREAM_LENGTH; i++)
-            {
-                printf("%04x", stream[i]);
-            }
-            printf("\n");
-        }
+        // if (input_cycle == 0)
+        // {
+        //     for (uint8_t i = 0; i < STREAM_LENGTH; i++)
+        //     {
+        //         printf("%04x", stream[i]);
+        //     }
+        //     printf("\n");
+        // }
 
         input_cycle = (input_cycle + 1) % 40000;
 
