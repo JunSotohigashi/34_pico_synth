@@ -213,13 +213,20 @@ void main_core0()
             voice1.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
             voice2.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
 
+            // VCF EG
+            uint16_t vcf_attack = stream[23] >> 2 << 8; // forces 0~3 to 0
+            uint16_t vcf_decay = stream[24] >> 2 << 8;
+            uint16_t vcf_amount = stream[25] << 6;
+            voice1.set_vcf_eg(vcf_attack, vcf_decay, vcf_amount);
+            voice2.set_vcf_eg(vcf_attack, vcf_decay, vcf_amount);
+
             // VCA EG
-            uint16_t attack = stream[27] >> 2 << 8; // forces 0~3 to 0
-            uint16_t decay = stream[28] >> 2 << 8;
-            uint16_t sustain = stream[29] << 6;
-            uint16_t release = stream[30] >> 2 << 8;
-            voice1.set_vca_eg(attack, decay, sustain, release);
-            voice2.set_vca_eg(attack, decay, sustain, release);
+            uint16_t vca_attack = stream[27] >> 2 << 8; // forces 0~3 to 0
+            uint16_t vca_decay = stream[28] >> 2 << 8;
+            uint16_t vca_sustain = stream[29] << 6;
+            uint16_t vca_release = stream[30] >> 2 << 8;
+            voice1.set_vca_eg(vca_attack, vca_decay, vca_sustain, vca_release);
+            voice2.set_vca_eg(vca_attack, vca_decay, vca_sustain, vca_release);
 
             // VCA Gain
             uint16_t vca_gain = stream[31] << 6;

@@ -90,18 +90,27 @@ public:
 
     void set_vcf_freq_res(bool is_hpf, uint16_t cutoff, Fixed_16_16 resonance);
 
+    void set_vcf_eg(uint16_t attack, uint16_t decay, uint16_t amount);
+
     void set_vca_eg(uint16_t attack, uint16_t decay, uint16_t sustain, uint16_t release);
 
     void set_vca_gain(uint16_t gain);
 
 private:
+    uint16_t cycle;
     Oscillator vco1;
     Oscillator vco2;
-    EG vca_eg;
-    Filter vcf;
     float vco_freq;
     float vco2_tune;
     Fixed_16_16 vco_mix;
+    Filter vcf;
+    EG vcf_eg;
+    Fixed_16_16 vcf_eg_amount;
+    Fixed_16_16 vcf_eg_value;
+    uint16_t vcf_cutoff;
+    Fixed_16_16 vcf_resonance;
+    EG vca_eg;
+    Fixed_16_16 vca_eg_value;
     Fixed_16_16 vca_gain;
 };
 

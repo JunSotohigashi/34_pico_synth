@@ -18,96 +18,91 @@ EG::EG()
 
 Fixed_16_16 EG::get_value()
 {
-    if (cycle == 0)
+    if (state == EGState::Ready)
     {
-        if (state == EGState::Ready)
-        {
-            value = Fixed_16_16::zero;
-        }
+        value = Fixed_16_16::zero;
+    }
 
-        if (state == EGState::Attack)
+    if (state == EGState::Attack)
+    {
+        if (attack == Fixed_16_16::zero)
         {
-            if (attack == Fixed_16_16::zero)
+            value = Fixed_16_16::one;
+            state = EGState::Decay;
+        }
+        else
+        {
+            Fixed_16_16 delta = tau / attack;
+            if (Fixed_16_16::one - value < delta)
             {
                 value = Fixed_16_16::one;
                 state = EGState::Decay;
             }
+            else if (delta == Fixed_16_16::zero)
+                value += Fixed_16_16::epsilon;
             else
-            {
-                Fixed_16_16 delta = tau / attack;
-                if (Fixed_16_16::one - value < delta)
-                {
-                    value = Fixed_16_16::one;
-                    state = EGState::Decay;
-                }
-                else if (delta == Fixed_16_16::zero)
-                    value += Fixed_16_16::epsilon;
-                else
-                    value += delta;
-            }
+                value += delta;
         }
+    }
 
-        if (state == EGState::Decay)
+    if (state == EGState::Decay)
+    {
+        if (decay == Fixed_16_16::zero)
         {
-            if (decay == Fixed_16_16::zero)
+            value = sustain;
+            state = EGState::Sustain;
+        }
+        else
+        {
+            Fixed_16_16 delta = tau * (Fixed_16_16::one - sustain) / decay;
+            if (value - sustain < delta)
             {
                 value = sustain;
                 state = EGState::Sustain;
             }
+            else if (delta == Fixed_16_16::zero)
+                value -= Fixed_16_16::epsilon;
             else
-            {
-                Fixed_16_16 delta = tau * (Fixed_16_16::one - sustain) / decay;
-                if (value - sustain < delta)
-                {
-                    value = sustain;
-                    state = EGState::Sustain;
-                }
-                else if (delta == Fixed_16_16::zero)
-                    value -= Fixed_16_16::epsilon;
-                else
-                    value -= delta;
-            }
+                value -= delta;
         }
+    }
 
-        if (state == EGState::Sustain)
-        {
+    if (state == EGState::Sustain)
+    {
+        value = sustain;
+    }
+
+    if (state == EGState::Release)
+    {
+        if (state_old != EGState::Release && value > sustain)
             value = sustain;
-        }
 
-        if (state == EGState::Release)
+        if (release == Fixed_16_16::zero)
         {
-            if (state_old != EGState::Release && value > sustain)
-                value = sustain;
-                
-            if (release == Fixed_16_16::zero)
+            value = Fixed_16_16::zero;
+            state = EGState::Ready;
+        }
+        else
+        {
+            Fixed_16_16 delta = tau * sustain / release;
+            if (value < delta)
             {
                 value = Fixed_16_16::zero;
                 state = EGState::Ready;
             }
+            else if (delta == Fixed_16_16::zero)
+                value -= Fixed_16_16::epsilon;
             else
-            {
-                Fixed_16_16 delta = tau * sustain / release;
-                if (value < delta)
-                {
-                    value = Fixed_16_16::zero;
-                    state = EGState::Ready;
-                }
-                else if (delta == Fixed_16_16::zero)
-                    value -= Fixed_16_16::epsilon;
-                else
-                    value -= delta;
-            }
+                value -= delta;
         }
-
-        if (value > Fixed_16_16::one)
-            value = Fixed_16_16::one;
-        if (value < Fixed_16_16::zero)
-            value = Fixed_16_16::zero;
     }
 
-    cycle = (cycle + 1) % CYCLE_DIV;
-    state_old = state;
+    if (value > Fixed_16_16::one)
+        value = Fixed_16_16::one;
+    if (value < Fixed_16_16::zero)
+        value = Fixed_16_16::zero;
 
+    state_old = state;
     return value;
 }
 

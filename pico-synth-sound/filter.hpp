@@ -29,8 +29,6 @@ class Filter
 {
 public:
     Filter();
-    // void set_filter(Fixed_16_16 cutoff_freq, Fixed_16_16 resonance);
-    // void set_filter(float cutoff_freq, float resonance);
     void set_filter(uint16_t cutoff, Fixed_16_16 resonance);
     void set_filter_type(bool is_hpf);
     Fixed_16_16 get_value(Fixed_16_16 x);
