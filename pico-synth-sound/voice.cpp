@@ -8,14 +8,15 @@ Voice::Voice()
       vca_eg(EG()),
       vcf(Filter()),
       vco2_tune(1.0),
-      vco_mix(Fixed_16_16::from_float(0.5f))
+      vco_mix(Fixed_16_16::from_float(0.5f)),
+      vca_gain(Fixed_16_16::one)
 {
 }
 
 Fixed_16_16 Voice::get_value()
 {
-    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * (Fixed_16_16::one - vco_mix * vco_mix);                                           // y = 1-x^2
-    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * (Fixed_16_16::one - (Fixed_16_16::one - vco_mix) * (Fixed_16_16::one - vco_mix)); // y = 1-(1-x)^2
+    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * vca_gain * (Fixed_16_16::one - vco_mix * vco_mix);                                           // y = 1-x^2
+    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * vca_gain * (Fixed_16_16::one - (Fixed_16_16::one - vco_mix) * (Fixed_16_16::one - vco_mix)); // y = 1-(1-x)^2
     return vcf.get_value(value1 + value2);
 }
 
@@ -83,4 +84,9 @@ void Voice::set_vca_eg(uint16_t attack, uint16_t decay, uint16_t sustain, uint16
     Fixed_16_16 s = Fixed_16_16::from_raw_value(sustain);
     Fixed_16_16 r = Fixed_16_16::from_raw_value(release);
     vca_eg.set_adsr(a * a, d * d, s, r * r);
+}
+
+void Voice::set_vca_gain(uint16_t gain)
+{
+    vca_gain = Fixed_16_16::from_raw_value(gain);
 }

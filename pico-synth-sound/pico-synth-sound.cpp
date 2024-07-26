@@ -220,6 +220,11 @@ void main_core0()
             uint16_t release = stream[30] >> 2 << 8;
             voice1.set_vca_eg(attack, decay, sustain, release);
             voice2.set_vca_eg(attack, decay, sustain, release);
+
+            // VCA Gain
+            uint16_t vca_gain = stream[31] << 6;
+            voice1.set_vca_gain(vca_gain);
+            voice2.set_vca_gain(vca_gain);
         }
 
         // 1Hz cycle

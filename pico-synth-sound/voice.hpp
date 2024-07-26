@@ -92,6 +92,8 @@ public:
 
     void set_vca_eg(uint16_t attack, uint16_t decay, uint16_t sustain, uint16_t release);
 
+    void set_vca_gain(uint16_t gain);
+
 private:
     Oscillator vco1;
     Oscillator vco2;
@@ -100,6 +102,7 @@ private:
     float vco_freq;
     float vco2_tune;
     Fixed_16_16 vco_mix;
+    Fixed_16_16 vca_gain;
 };
 
 #endif
