@@ -15,9 +15,9 @@ Voice::Voice()
 
 Fixed_16_16 Voice::get_value()
 {
-    Fixed_16_16 value1 = vco1.get_value() * vca_eg.get_value() * vca_gain * (Fixed_16_16::one - vco_mix * vco_mix);                                           // y = 1-x^2
-    Fixed_16_16 value2 = vco2.get_value() * vca_eg.get_value() * vca_gain * (Fixed_16_16::one - (Fixed_16_16::one - vco_mix) * (Fixed_16_16::one - vco_mix)); // y = 1-(1-x)^2
-    return vcf.get_value(value1 + value2);
+    Fixed_16_16 value1 = vco1.get_value() * (Fixed_16_16::one - vco_mix * vco_mix);                                           // y = 1-x^2
+    Fixed_16_16 value2 = vco2.get_value() * (Fixed_16_16::one - (Fixed_16_16::one - vco_mix) * (Fixed_16_16::one - vco_mix)); // y = 1-(1-x)^2
+    return vcf.get_value(value1 + value2) * vca_eg.get_value() * vca_gain;
 }
 
 void Voice::gate_on()

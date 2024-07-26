@@ -11,7 +11,7 @@ EG::EG()
       decay(Fixed_16_16::from_float(0.001)),
       sustain(Fixed_16_16::from_float(0.5)),
       release(Fixed_16_16::from_float(0.001)),
-      tau((Fixed_16_16::from_float(1.0f / (5.0f * 400.0f)))), // 5.0s for slope, 400.0Hz cycle
+      tau((Fixed_16_16::from_float(1.0f / (3.0f * 400.0f)))), // 5.0s for slope, 400.0Hz cycle
       cycle(0)
 {
 }
