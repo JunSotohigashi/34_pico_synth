@@ -14,9 +14,6 @@
 // constants
 #define PIN_OUT_L 14
 #define PIN_OUT_R 15
-#define PIN_BTN_1 12
-#define PIN_BTN_2 13
-#define PIN_VR_1 26
 
 #define SPI_PORT_SOUND spi0
 #define PIN_SCK_SOUND 18
@@ -25,6 +22,9 @@
 #define PIN_CS_SOUND 17
 
 #define STREAM_LENGTH 34
+
+#define UNIT_1 1
+#define UNIT_2 2
 
 // global variablea
 queue_t sound_buffer;
@@ -82,14 +82,6 @@ int main()
     // オンボードLED
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-    // ボタン
-    gpio_init(PIN_BTN_1);
-    gpio_init(PIN_BTN_2);
-    gpio_set_dir(PIN_BTN_1, GPIO_IN);
-    gpio_set_dir(PIN_BTN_2, GPIO_IN);
-    gpio_set_pulls(PIN_BTN_1, true, false);
-    gpio_set_pulls(PIN_BTN_2, true, false);
 
     // 出力音声のバッファー
     queue_init(&sound_buffer, sizeof(uint32_t), 64);
@@ -160,16 +152,16 @@ void main_core0()
         if (input_cycle % 400 == 0)
         {
             // gate and note control
-            bool gate1 = stream[1] >> 15;
-            bool gate2 = stream[2] >> 15;
+            bool gate1 = stream[UNIT_1] >> 15;
+            bool gate2 = stream[UNIT_2] >> 15;
             if (!gate1_old && gate1)
             {
-                voice1.set_vco_freq_note_number(stream[1] >> 8 & 127);
+                voice1.set_vco_freq_note_number(stream[UNIT_1] >> 8 & 127);
                 voice1.gate_on();
             }
             if (!gate2_old && gate2)
             {
-                voice2.set_vco_freq_note_number(stream[2] >> 8 & 127);
+                voice2.set_vco_freq_note_number(stream[UNIT_2] >> 8 & 127);
                 voice2.gate_on();
             }
             if (gate1_old && !gate1)
@@ -235,14 +227,10 @@ void main_core0()
         }
 
         // 1Hz cycle
-        // if (input_cycle == 0)
-        // {
-        //     for (uint8_t i = 0; i < STREAM_LENGTH; i++)
-        //     {
-        //         printf("%04x", stream[i]);
-        //     }
-        //     printf("\n");
-        // }
+        if (input_cycle == 0)
+        {
+            printf("UNIT: %d, %d\n", UNIT_1, UNIT_2);
+        }
 
         input_cycle = (input_cycle + 1) % 40000;
 

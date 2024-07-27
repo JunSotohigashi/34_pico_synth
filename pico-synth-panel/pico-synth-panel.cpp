@@ -40,10 +40,12 @@
 #define PIN_SW_LFO_TARGET_R 21
 #define PIN_SW_LFO_TARGET_L 20
 
+#define N_UNIT 2   // must be 1 to 16
+
 semaphore_t sem;
 uint16_t unit_state = 0;
-uint8_t unit_note[16] = {0};
-uint8_t unit_velocity[16] = {0};
+uint8_t unit_note[N_UNIT] = {0};
+uint8_t unit_velocity[N_UNIT] = {0};
 
 void main_core1()
 {
@@ -72,7 +74,7 @@ void main_core1()
                     sem_acquire_blocking(&sem);
                     for (uint8_t i = 0; i < 16; i++)
                     {
-                        uint8_t i_offset = (i + unit_now) & 0x0F;
+                        uint8_t i_offset = (i + unit_now) % N_UNIT;
                         if (msg[2] == 0) // note off
                         {
                             if ((unit_state & 1 << i) && unit_note[i] == msg[1])
@@ -90,7 +92,7 @@ void main_core1()
                                 unit_state |= 1 << i_offset;
                                 unit_note[i_offset] = msg[1];
                                 unit_velocity[i_offset] = msg[2];
-                                unit_now = (i_offset + 1) & 0x0F;
+                                unit_now = (i_offset + 1) % N_UNIT;
                                 break;
                             }
                         }
@@ -183,7 +185,7 @@ int main()
         uint16_t stream[STREAM_LENGTH];
         stream[0] = 0xFFFF; // header
         sem_acquire_blocking(&sem);
-        for (uint8_t ch = 0; ch < 16; ch++)
+        for (uint8_t ch = 0; ch < N_UNIT; ch++)
         {
             stream[ch + 1] = ((unit_state >> ch) & 1) << 15 | unit_note[ch] << 8 | unit_velocity[ch];
         }
