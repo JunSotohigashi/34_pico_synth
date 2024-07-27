@@ -227,10 +227,15 @@ void main_core0()
         }
 
         // 1Hz cycle
-        if (input_cycle == 0)
-        {
-            printf("UNIT: %d, %d\n", UNIT_1, UNIT_2);
-        }
+        // if (input_cycle == 0)
+        // {
+        //     printf("UNIT: %d, %d  stream:", UNIT_1, UNIT_2);
+        //     for(uint8_t i = 0; i < STREAM_LENGTH; i++)
+        //     {
+        //         printf("%04x", stream[i]);
+        //     }
+        //     printf("\n");
+        // }
 
         input_cycle = (input_cycle + 1) % 40000;
 

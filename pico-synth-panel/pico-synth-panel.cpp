@@ -40,7 +40,7 @@
 #define PIN_SW_LFO_TARGET_R 21
 #define PIN_SW_LFO_TARGET_L 20
 
-#define N_UNIT 2   // must be 1 to 16
+#define N_UNIT 16   // must be 1 to 16
 
 semaphore_t sem;
 uint16_t unit_state = 0;
