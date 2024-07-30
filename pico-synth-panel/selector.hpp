@@ -2,7 +2,10 @@
 #define SELECTOR_HPP
 
 #include "pico/stdlib.h"
+#include "hardware/flash.h"
 #include "spi_74hc595.hpp"
+
+const uint32_t FLASH_TARGET_OFFSET = PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE;
 
 class Selector
 {
@@ -17,6 +20,10 @@ public:
           led_sr(led_sr),
           led_pin(led_pin)
     {
+        // read previous state from flash
+        // const uint8_t *flash_data = (const uint8_t *)(XIP_BASE + FLASH_TARGET_OFFSET);
+        // state = flash_data[flash_save_id];
+        // gpio
         gpio_init(pin_sw_r);
         gpio_init(pin_sw_l);
         gpio_set_dir(pin_sw_r, GPIO_IN);

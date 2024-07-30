@@ -40,17 +40,21 @@
 #define PIN_SW_LFO_TARGET_R 21
 #define PIN_SW_LFO_TARGET_L 20
 
-#define N_UNIT 16   // must be 1 to 16
+#define N_UNIT 16 // must be 1 to 16
 
-semaphore_t sem;
+semaphore_t sem; // semaphore for below 3 variables
 uint16_t unit_state = 0;
 uint8_t unit_note[N_UNIT] = {0};
 uint8_t unit_velocity[N_UNIT] = {0};
 
+/**
+ * \brief receive midi events via UART from pico-synth-keyboard
+ *
+ */
 void main_core1()
 {
-    char buf[256] = {0};
-    char buf_msg[12] = {0};
+    char buf[256] = {0};    // for UART
+    char buf_msg[12] = {0}; // for sending to another core
     uint8_t buf_index = 0;
     uint8_t unit_now = 0;
     while (true)
@@ -75,26 +79,21 @@ void main_core1()
                     for (uint8_t i = 0; i < 16; i++)
                     {
                         uint8_t i_offset = (i + unit_now) % N_UNIT;
-                        if (msg[2] == 0) // note off
+
+                        if (msg[2] == 0 && (unit_state & 1 << i) && unit_note[i] == msg[1]) // note off
                         {
-                            if ((unit_state & 1 << i) && unit_note[i] == msg[1])
-                            {
-                                unit_note[i] = 0;
-                                unit_velocity[i] = 0;
-                                unit_state &= ~(1 << i);
-                                break;
-                            }
+                            unit_note[i] = 0;
+                            unit_velocity[i] = 0;
+                            unit_state &= ~(1 << i);
+                            break;
                         }
-                        else // note on
+                        else if (msg[2] != 0 && !(unit_state & 1 << i_offset)) // note on
                         {
-                            if (!(unit_state & 1 << i_offset))
-                            {
-                                unit_state |= 1 << i_offset;
-                                unit_note[i_offset] = msg[1];
-                                unit_velocity[i_offset] = msg[2];
-                                unit_now = (i_offset + 1) % N_UNIT;
-                                break;
-                            }
+                            unit_state |= 1 << i_offset;
+                            unit_note[i_offset] = msg[1];
+                            unit_velocity[i_offset] = msg[2];
+                            unit_now = (i_offset + 1) % N_UNIT;
+                            break;
                         }
                     }
                     sem_release(&sem);
@@ -115,12 +114,13 @@ int main()
     gpio_set_function(PIN_UART_TX, GPIO_FUNC_UART);
     gpio_set_function(PIN_UART_RX, GPIO_FUNC_UART);
 
-    // SPI initialisation. This example will use SPI at 1MHz.
+    // SPI for pico-synth-panel
     spi_init(SPI_PORT_PANEL, 1000 * 1000);
     gpio_set_function(PIN_MISO_PANEL, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SCK_PANEL, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI_PANEL, GPIO_FUNC_SPI);
 
+    // SPI for pico-synth-sound
     spi_init(SPI_PORT_SOUND, 1000 * 1000);
     spi_set_format(SPI_PORT_SOUND, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     gpio_set_function(PIN_MISO_SOUND, GPIO_FUNC_SPI);
@@ -198,8 +198,8 @@ int main()
         stream[22] = adc1.read(7); // vcf resonanse
         stream[23] = adc1.read(6); // vcf attack
         stream[24] = adc1.read(5); // vcf decay
-        stream[25] = adc2.read(7); // vcf sustain
-        stream[26] = adc1.read(4); // vcf release
+        stream[25] = adc2.read(7); // vcf depth
+        stream[26] = adc1.read(4); //
         stream[27] = adc2.read(6); // vca attack
         stream[28] = adc2.read(5); // vca decay
         stream[29] = adc2.read(4); // vca sustain
@@ -207,7 +207,8 @@ int main()
         stream[31] = adc2.read(2); // vca gain
         stream[32] = adc2.read(1); // lfo speed
         stream[33] = adc2.read(0); // lfo depth
-        
+
+        // send stream message
         for (uint8_t i = 0; i < STREAM_LENGTH; i++)
         {
             gpio_put(PIN_CS_SOUND, false);
