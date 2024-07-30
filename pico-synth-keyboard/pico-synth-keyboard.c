@@ -126,6 +126,21 @@ void main_core0()
             sprintf(buf, "%02x %02x %02x\n", msg[0], msg[1], msg[2]);
             uart_puts(UART_PORT, buf);
         }
+        uint8_t packet[4];
+        if (tud_midi_available())
+        {
+            tud_midi_packet_read(packet);
+            if(packet[1] == 0x80)
+            {
+                packet[1] = 0x90;
+                packet[3] = 0x00;
+            }
+            uint8_t buf[20];
+            sprintf(buf, "%02x %02x %02x\n", packet[1], packet[2], packet[3]);
+            uart_puts(UART_PORT, buf);
+
+        }
+
         sleep_ms(1);
     }
 }
