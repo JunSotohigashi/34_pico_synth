@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "pico/util/queue.h"
 #include "pico/multicore.h"
 #include "hardware/spi.h"
 #include "selector.hpp"
@@ -47,6 +48,13 @@ uint16_t unit_state = 0;
 uint8_t unit_note[N_UNIT] = {0};
 uint8_t unit_velocity[N_UNIT] = {0};
 
+enum class KEY
+{
+    OFF,
+    PUSH,
+    RELEASE
+};
+
 /**
  * \brief receive midi events via UART from pico-synth-keyboard
  *
@@ -56,7 +64,13 @@ void main_core1()
     char buf[256] = {0};    // for UART
     char buf_msg[12] = {0}; // for sending to another core
     uint8_t buf_index = 0;
-    uint8_t unit_now = 0;
+
+    uint8_t unit_next = 0;
+    queue_t unit_busy;
+    queue_init(&unit_busy, sizeof(uint8_t), N_UNIT);
+    KEY note_state[128] = {KEY::OFF};
+    bool sustain = false;
+
     while (true)
     {
         if (uart_is_readable(UART_PORT))
@@ -72,32 +86,84 @@ void main_core1()
                 buf_msg[10] = '\0';
                 uint8_t msg[3];
                 sscanf(buf_msg, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
-                // assign unit
-                if (msg[0] == 0x90)
-                {
-                    sem_acquire_blocking(&sem);
-                    for (uint8_t i = 0; i < 16; i++)
-                    {
-                        uint8_t i_offset = (i + unit_now) % N_UNIT;
 
-                        if (msg[2] == 0 && (unit_state & 1 << i) && unit_note[i] == msg[1]) // note off
+                sem_acquire_blocking(&sem);
+                if (msg[0] == 0x90 && msg[2] == 0) // note off
+                {
+                    if (sustain)
+                        note_state[msg[1]] = KEY::RELEASE;
+                    else
+                    {
+                        note_state[msg[1]] = KEY::OFF;
+                        for (uint8_t i = 0; i < queue_get_level(&unit_busy); i++)
                         {
-                            unit_note[i] = 0;
-                            unit_velocity[i] = 0;
-                            unit_state &= ~(1 << i);
-                            break;
+                            uint8_t unit;
+                            queue_remove_blocking(&unit_busy, &unit);
+                            if ((unit_state & (1 << unit)) && (unit_note[unit] == msg[1]))
+                            {
+                                unit_state &= ~(1 << unit);
+                                unit_note[unit] = 0;
+                                unit_velocity[unit] = 0;
+                            }
+                            else
+                                queue_add_blocking(&unit_busy, &unit);
                         }
-                        else if (msg[2] != 0 && !(unit_state & 1 << i_offset)) // note on
+                    }
+                }
+                else if (msg[0] == 0x90 && msg[2] != 0) // note on
+                {
+                    note_state[msg[1]] = KEY::PUSH;
+                    bool found_free_unit = false;
+                    for (uint8_t i = 0; i < N_UNIT; i++)
+                    {
+                        uint8_t unit = (i + unit_next) % N_UNIT;
+                        if (!(unit_state & 1 << unit))
                         {
-                            unit_state |= 1 << i_offset;
-                            unit_note[i_offset] = msg[1];
-                            unit_velocity[i_offset] = msg[2];
-                            unit_now = (i_offset + 1) % N_UNIT;
+                            unit_state |= 1 << unit;
+                            unit_note[unit] = msg[1];
+                            unit_velocity[unit] = msg[2];
+                            unit_next = (unit + 1) % N_UNIT;
+                            queue_add_blocking(&unit_busy, &unit);
+                            found_free_unit = true;
                             break;
                         }
                     }
-                    sem_release(&sem);
+                    if (!found_free_unit)
+                    {
+                        uint8_t unit;
+                        queue_remove_blocking(&unit_busy, &unit);
+                        unit_note[unit] = msg[1];
+                        unit_velocity[unit] = msg[2];
+                        unit_next = (unit + 1) % N_UNIT;
+                        queue_add_blocking(&unit_busy, &unit);
+                    }
                 }
+                else if (msg[0] == 0xB0 && msg[1] == 0x40) // sustain
+                {
+                    sustain = (bool)msg[2];
+
+                    for (uint8_t note = 0; note < 128; note++)
+                    {
+                        if (!sustain && note_state[note] == KEY::RELEASE)
+                        {
+                            note_state[note] = KEY::OFF;
+                            for (uint8_t u = 0; u < queue_get_level(&unit_busy); u++)
+                            {
+                                uint8_t unit;
+                                queue_remove_blocking(&unit_busy, &unit);
+                                if ((unit_state & (1 << unit)) && (unit_note[unit] == note))
+                                {
+                                    unit_state &= ~(1 << unit);
+                                    unit_note[unit] = 0;
+                                    unit_velocity[unit] = 0;
+                                }
+                                else
+                                    queue_add_blocking(&unit_busy, &unit);
+                            }
+                        }
+                    }
+                }
+                sem_release(&sem);
             }
             buf_index++;
         }
