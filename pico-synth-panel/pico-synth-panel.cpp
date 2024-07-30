@@ -95,7 +95,8 @@ void main_core1()
                     else
                     {
                         note_state[msg[1]] = KEY::OFF;
-                        for (uint8_t i = 0; i < queue_get_level(&unit_busy); i++)
+                        uint8_t i_max = queue_get_level(&unit_busy);
+                        for (uint8_t i = 0; i < i_max; i++)
                         {
                             uint8_t unit;
                             queue_remove_blocking(&unit_busy, &unit);
@@ -147,7 +148,8 @@ void main_core1()
                         if (!sustain && note_state[note] == KEY::RELEASE)
                         {
                             note_state[note] = KEY::OFF;
-                            for (uint8_t u = 0; u < queue_get_level(&unit_busy); u++)
+                            uint8_t u_max = queue_get_level(&unit_busy);
+                            for (uint8_t u = 0; u < u_max; u++)
                             {
                                 uint8_t unit;
                                 queue_remove_blocking(&unit_busy, &unit);
