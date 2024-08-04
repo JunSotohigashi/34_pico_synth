@@ -221,6 +221,13 @@ void main_core0()
             uint16_t vca_gain = stream[31] << 6;
             voice1.set_vca_gain(vca_gain);
             voice2.set_vca_gain(vca_gain);
+
+            LFOTarget lfo_target = static_cast<LFOTarget>(stream[17] & 0b111);
+            LFOType lfo_type = static_cast<LFOType>((stream[17] >> 3) & 0b111);
+            float lfo_speed = powf((float)stream[32] / 1024.0f, 2.0f) * 100.0f;
+            uint16_t lfo_depth = stream[33] >> 2 << 8; // forces 0~3 to 0
+            voice1.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);
+            voice2.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);
         }
 
         // 1Hz cycle
