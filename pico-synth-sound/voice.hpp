@@ -112,7 +112,7 @@ public:
 
     void set_vca_gain(uint16_t gain);
 
-    void set_lfo(LFOTarget target, LFOType type, float freq, uint16_t depth);
+    void set_lfo(LFOTarget target, WaveType type, float freq, uint16_t depth);
 
 private:
     uint16_t cycle;
@@ -130,12 +130,12 @@ private:
     EG vca_eg;
     Fixed_16_16 vca_eg_value;
     Fixed_16_16 vca_gain;
-    Fixed_16_16 pan;
     Oscillator lfo;
     LFOTarget lfo_taget;
-    LFOType lfo_type;
     float lfo_freq;
     uint16_t lfo_depth;
+    Fixed_16_16 lfo_gain;
+    Fixed_16_16 lfo_pan;
 
     Fixed_16_16 value_l;
     Fixed_16_16 value_r;

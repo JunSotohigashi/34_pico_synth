@@ -23,7 +23,9 @@ enum class WaveType
     Saw,
     Sine,
     Triangle,
-    Square
+    Square,
+    Saw_Down,
+    Noise
 };
 
 /**

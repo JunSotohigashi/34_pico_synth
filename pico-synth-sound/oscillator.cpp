@@ -1,5 +1,6 @@
 #include "oscillator.hpp"
 #include "table_wave_auto.h"
+#include "pico/rand.h"
 #include "hardware/interp.h"
 
 Oscillator::Oscillator()
@@ -29,6 +30,12 @@ Fixed_16_16 Oscillator::get_value()
 
     case WaveType::Square:
         return get_wave_saw(phase16, phase16_delta) - get_wave_saw(phase16 + duty, phase16_delta);
+    
+    case WaveType::Saw_Down:
+        return -get_wave_saw(phase16, phase16_delta);
+
+    case WaveType::Noise:
+        return Fixed_16_16::zero;
 
     default:
         break;

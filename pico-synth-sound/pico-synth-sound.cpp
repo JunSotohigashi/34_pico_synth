@@ -173,8 +173,8 @@ void main_core0()
             gate2_old = gate2;
 
             // VCO wavetype select
-            WaveType vco1_wave = static_cast<WaveType>(stream[17] >> 10 & 3);
-            WaveType vco2_wave = static_cast<WaveType>(stream[17] >> 8 & 3);
+            WaveType vco1_wave = static_cast<WaveType>(stream[17] >> 10 & 0b11);
+            WaveType vco2_wave = static_cast<WaveType>(stream[17] >> 8 & 0b11);
             voice1.set_vco1_wave_type(vco1_wave);
             voice1.set_vco2_wave_type(vco2_wave);
             voice2.set_vco1_wave_type(vco1_wave);
@@ -223,8 +223,9 @@ void main_core0()
             voice2.set_vca_gain(vca_gain);
 
             LFOTarget lfo_target = static_cast<LFOTarget>(stream[17] & 0b111);
-            LFOType lfo_type = static_cast<LFOType>((stream[17] >> 3) & 0b111);
-            float lfo_speed = powf((float)stream[32] / 1024.0f, 2.0f) * 100.0f;
+            const WaveType lfo_types[6] = {WaveType::Saw, WaveType::Saw_Down, WaveType::Triangle, WaveType::Sine, WaveType::Square, WaveType::Noise};
+            WaveType lfo_type = lfo_types[(stream[17] >> 3) & 0b111];
+            float lfo_speed = (float)stream[32] * (float)stream[32] / 1048576.0f * 100.0f;
             uint16_t lfo_depth = stream[33] >> 2 << 8; // forces 0~3 to 0
             voice1.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);
             voice2.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);

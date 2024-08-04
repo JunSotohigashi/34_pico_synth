@@ -65,6 +65,7 @@ foreach(unit RANGE 0 7)
         # Add the standard library to the build
         target_link_libraries(pico-synth-sound${unit}
                 pico_stdlib
+                pico_rand
                 pico_multicore)
         
         # Add the standard include files to the build
