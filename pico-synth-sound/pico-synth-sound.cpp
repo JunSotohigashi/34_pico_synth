@@ -237,15 +237,19 @@ void main_core0()
         input_cycle = (input_cycle + 1) % 40000;
 
         // get sound value
-        Fixed_16_16 voice_value = (voice1.get_value() + voice2.get_value()) * gain_unit;
+        voice1.update();
+        voice2.update();
 
-        uint32_t out_level = voice_value.raw_value + 0x10000; // remove sign
-        uint16_t out_level16 = out_level >> 2;
+        Fixed_16_16 voice_value_L = (voice1.get_value_L() + voice2.get_value_L()) * gain_unit;
+        Fixed_16_16 voice_value_R = (voice1.get_value_R() + voice2.get_value_R()) * gain_unit;
 
-        uint16_t out_level_L = out_level16;
-        uint16_t out_level_R = out_level16;
+        uint32_t out_level_L = voice_value_L.raw_value + 0x10000; // remove sign
+        uint32_t out_level_R = voice_value_R.raw_value + 0x10000; // remove sign
+
+        uint16_t out_level16_L = out_level_L >> 2;
+        uint16_t out_level16_R = out_level_R >> 2;
         // write to sound buffer
-        uint32_t out_level_LR = ((uint32_t)out_level_L << 16) | out_level_R;
+        uint32_t out_level_LR = ((uint32_t)out_level16_L << 16) | out_level16_R;
         queue_add_blocking(&sound_buffer, &out_level_LR);
     }
 }

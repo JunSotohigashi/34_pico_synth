@@ -28,12 +28,10 @@ class Voice
 public:
     Voice();
 
-    /**
-     * \brief Get current value
-     *
-     * \return Fixed_16_16 output
-     */
-    Fixed_16_16 get_value();
+    void update();
+
+    Fixed_16_16 get_value_L();
+    Fixed_16_16 get_value_R();
 
     /**
      * \brief Trigger the gate on, set \a state to Attack
@@ -112,6 +110,10 @@ private:
     EG vca_eg;
     Fixed_16_16 vca_eg_value;
     Fixed_16_16 vca_gain;
+
+    Fixed_16_16 value_l;
+    Fixed_16_16 value_r;
+
 };
 
 #endif

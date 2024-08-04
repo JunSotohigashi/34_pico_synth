@@ -18,11 +18,13 @@ Voice::Voice()
       vcf_resonance(Fixed_16_16::one),
       vca_eg(EG()),
       vca_eg_value(Fixed_16_16::zero),
-      vca_gain(Fixed_16_16::one)
+      vca_gain(Fixed_16_16::one),
+      value_l(Fixed_16_16::zero),
+      value_r(Fixed_16_16::zero)
 {
 }
 
-Fixed_16_16 Voice::get_value()
+void Voice::update()
 {
     cycle++;
     if (cycle == HEAVY_CYCLE)
@@ -41,7 +43,19 @@ Fixed_16_16 Voice::get_value()
         y = Fixed_16_16::one;
     if (y < -Fixed_16_16::one)
         y = -Fixed_16_16::one;
-    return y;
+
+    value_l = y;
+    value_r = y;
+}
+
+Fixed_16_16 Voice::get_value_L()
+{
+    return value_l;
+}
+
+Fixed_16_16 Voice::get_value_R()
+{
+    return value_r;
 }
 
 void Voice::gate_on()
