@@ -37,42 +37,44 @@ project(pico-synth-sound C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-foreach(unit_1 RANGE 1 16 2)
-        math(EXPR unit_2 "${unit_1}+1")
+foreach(unit RANGE 0 7)
+        math(EXPR unit_1 "${unit} * 2 + 1")
+        math(EXPR unit_2 "${unit} * 2 + 2")
+        message("UNIT${unit}: ${unit_1}, ${unit_2}")
         
         # Add executable. Default name is the project name, version 0.1
         
-        add_executable(pico-synth-sound${unit_1}_${unit_2}
+        add_executable(pico-synth-sound${unit}
                 pico-synth-sound.cpp
                 voice.cpp
                 oscillator.cpp
                 envelope_generator.cpp
                 filter.cpp)
 
-        target_compile_definitions(pico-synth-sound${unit_1}_${unit_2} PRIVATE
+        target_compile_definitions(pico-synth-sound${unit} PRIVATE
                 UNIT_1=${unit_1}
                 UNIT_2=${unit_2})
         
-        pico_set_program_name(pico-synth-sound${unit_1}_${unit_2} "pico-synth-sound${unit_1}_${unit_2}")
-        pico_set_program_version(pico-synth-sound${unit_1}_${unit_2} "0.1")
+        pico_set_program_name(pico-synth-sound${unit} "pico-synth-sound${unit}")
+        pico_set_program_version(pico-synth-sound${unit} "0.1")
         
         # Modify the below lines to enable/disable output over UART/USB
-        pico_enable_stdio_uart(pico-synth-sound${unit_1}_${unit_2} 0)
-        pico_enable_stdio_usb(pico-synth-sound${unit_1}_${unit_2} 1)
+        pico_enable_stdio_uart(pico-synth-sound${unit} 0)
+        pico_enable_stdio_usb(pico-synth-sound${unit} 1)
         
         # Add the standard library to the build
-        target_link_libraries(pico-synth-sound${unit_1}_${unit_2}
+        target_link_libraries(pico-synth-sound${unit}
                 pico_stdlib
                 pico_multicore)
         
         # Add the standard include files to the build
-        target_include_directories(pico-synth-sound${unit_1}_${unit_2} PRIVATE
+        target_include_directories(pico-synth-sound${unit} PRIVATE
           ${CMAKE_CURRENT_LIST_DIR}
           ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts or any other standard includes, if required
         )
         
         # Add any user requested libraries
-        target_link_libraries(pico-synth-sound${unit_1}_${unit_2}
+        target_link_libraries(pico-synth-sound${unit}
                 hardware_clocks
                 hardware_divider
                 hardware_interp
@@ -80,6 +82,6 @@ foreach(unit_1 RANGE 1 16 2)
                 hardware_spi
                 )
         
-        pico_add_extra_outputs(pico-synth-sound${unit_1}_${unit_2})
+        pico_add_extra_outputs(pico-synth-sound${unit})
     
 endforeach()
