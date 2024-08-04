@@ -60,10 +60,6 @@ void Filter::set_filter_type(bool is_hpf)
 Fixed_16_16 Filter::get_value(Fixed_16_16 x)
 {
     Fixed_16_16 y = b0_a0 * x + b1_a0 * x1 + b2_a0 * x2 - a1_a0 * y1 - a2_a0 * y2;
-    if (y > Fixed_16_16::one)
-        y = Fixed_16_16::one;
-    if (y < -Fixed_16_16::one)
-        y = -Fixed_16_16::one;
     x2 = x1;
     x1 = x;
     y2 = y1;
