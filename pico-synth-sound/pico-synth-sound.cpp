@@ -23,9 +23,6 @@
 
 #define STREAM_LENGTH 34
 
-#define UNIT_1 1
-#define UNIT_2 2
-
 // global variablea
 queue_t sound_buffer;
 uint16_t stream[STREAM_LENGTH];

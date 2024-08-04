@@ -31,47 +31,55 @@ include(pico_sdk_import.cmake)
 if (PICO_SDK_VERSION_STRING VERSION_LESS "1.4.0")
   message(FATAL_ERROR "Raspberry Pi Pico SDK version 1.4.0 (or later) required. Your version is ${PICO_SDK_VERSION_STRING}")
 endif()
-
+        
 project(pico-synth-sound C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+foreach(unit_1 RANGE 1 16 2)
+        math(EXPR unit_2 "${unit_1}+1")
+        
+        # Add executable. Default name is the project name, version 0.1
+        
+        add_executable(pico-synth-sound${unit_1}_${unit_2}
+                pico-synth-sound.cpp
+                voice.cpp
+                oscillator.cpp
+                envelope_generator.cpp
+                filter.cpp)
 
-add_executable(pico-synth-sound
-        pico-synth-sound.cpp
-        voice.cpp
-        oscillator.cpp
-        envelope_generator.cpp
-        filter.cpp)
-
-pico_set_program_name(pico-synth-sound "pico-synth-sound")
-pico_set_program_version(pico-synth-sound "0.1")
-
-# Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(pico-synth-sound 0)
-pico_enable_stdio_usb(pico-synth-sound 1)
-
-# Add the standard library to the build
-target_link_libraries(pico-synth-sound
-        pico_stdlib
-        pico_multicore)
-
-# Add the standard include files to the build
-target_include_directories(pico-synth-sound PRIVATE
-  ${CMAKE_CURRENT_LIST_DIR}
-  ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts or any other standard includes, if required
-)
-
-# Add any user requested libraries
-target_link_libraries(pico-synth-sound
-        hardware_clocks
-        hardware_divider
-        hardware_interp
-        hardware_pwm
-        hardware_spi
+        target_compile_definitions(pico-synth-sound${unit_1}_${unit_2} PRIVATE
+                UNIT_1=${unit_1}
+                UNIT_2=${unit_2})
+        
+        pico_set_program_name(pico-synth-sound${unit_1}_${unit_2} "pico-synth-sound${unit_1}_${unit_2}")
+        pico_set_program_version(pico-synth-sound${unit_1}_${unit_2} "0.1")
+        
+        # Modify the below lines to enable/disable output over UART/USB
+        pico_enable_stdio_uart(pico-synth-sound${unit_1}_${unit_2} 0)
+        pico_enable_stdio_usb(pico-synth-sound${unit_1}_${unit_2} 1)
+        
+        # Add the standard library to the build
+        target_link_libraries(pico-synth-sound${unit_1}_${unit_2}
+                pico_stdlib
+                pico_multicore)
+        
+        # Add the standard include files to the build
+        target_include_directories(pico-synth-sound${unit_1}_${unit_2} PRIVATE
+          ${CMAKE_CURRENT_LIST_DIR}
+          ${CMAKE_CURRENT_LIST_DIR}/.. # for our common lwipopts or any other standard includes, if required
         )
-
-pico_add_extra_outputs(pico-synth-sound)
-
+        
+        # Add any user requested libraries
+        target_link_libraries(pico-synth-sound${unit_1}_${unit_2}
+                hardware_clocks
+                hardware_divider
+                hardware_interp
+                hardware_pwm
+                hardware_spi
+                )
+        
+        pico_add_extra_outputs(pico-synth-sound${unit_1}_${unit_2})
+    
+endforeach()
