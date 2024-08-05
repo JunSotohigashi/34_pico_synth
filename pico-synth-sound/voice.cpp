@@ -113,8 +113,8 @@ void Voice::set_vco2_wave_type(WaveType wave_type)
 void Voice::set_vco_freq(float freq)
 {
     vco_freq = freq;
-    vco1.set_phase16_delta(vco_freq * 65536.0f / 40000.0f);
-    vco2.set_phase16_delta((vco_freq * vco2_tune) * 65536.0f / 40000.0f);
+    vco1.set_phase16_delta(static_cast<uint16_t>(vco_freq * 65536.0f / 40000.0f));
+    vco2.set_phase16_delta(static_cast<uint16_t>((vco_freq * vco2_tune) * 65536.0f / 40000.0f));
 }
 
 void Voice::set_vco_freq_note_number(uint8_t note)
@@ -125,7 +125,7 @@ void Voice::set_vco_freq_note_number(uint8_t note)
 void Voice::set_vco2_tune(float tune)
 {
     vco2_tune = tune;
-    vco2.set_phase16_delta((vco_freq * vco2_tune) * 65536.0f / 40000.0f);
+    vco2.set_phase16_delta(static_cast<uint16_t>((vco_freq * vco2_tune) * 65536.0f / 40000.0f));
 }
 
 void Voice::set_vco_duty(uint16_t duty)
