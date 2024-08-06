@@ -18,12 +18,6 @@ Voice::Voice()
       vca_eg(EG()),
       vca_eg_value(Fixed_16_16::zero),
       vca_gain(Fixed_16_16::one),
-      lfo(Oscillator()),
-      lfo_taget(LFOTarget::VCO2),
-      lfo_freq(0.0),
-      lfo_depth(0.0),
-      lfo_gain(Fixed_16_16::one),
-      lfo_pan(Fixed_16_16::from_float(0.5f)),
       value_l(Fixed_16_16::zero),
       value_r(Fixed_16_16::zero)
 {
@@ -37,25 +31,6 @@ void Voice::update()
         vca_eg_value = vca_eg.get_value();
         vcf_eg_value = vcf_eg.get_value() * vcf_eg_amount + Fixed_16_16::one;
         vcf.set_filter(static_cast<uint16_t>((Fixed_16_16::from_raw_value(vcf_cutoff) * vcf_eg_value).raw_value), vcf_resonance);
-
-        if (lfo_taget == LFOTarget::Gain)
-        {
-            lfo_gain = ((lfo.get_value() - Fixed_16_16::one) * Fixed_16_16::from_raw_value(lfo_depth)) * Fixed_16_16::from_float(0.5f) + Fixed_16_16::one;
-        }
-        else
-        {
-            lfo_gain = Fixed_16_16::one;
-        }
-
-        if (lfo_taget == LFOTarget::Pan)
-        {
-            lfo_pan = ((lfo.get_value() * Fixed_16_16::from_raw_value(lfo_depth)) + Fixed_16_16::one) * Fixed_16_16::from_float(0.5f);
-        }
-        else
-        {
-            lfo_pan = Fixed_16_16::from_float(0.5f);
-        }
-
         cycle = 0;
     }
 
@@ -64,8 +39,8 @@ void Voice::update()
 
     Fixed_16_16 y = vcf.get_value(value1 + value2) * vca_eg_value * vca_gain;
 
-    value_l = y * lfo_pan * lfo_gain;
-    value_r = y * (Fixed_16_16::one - lfo_pan) * lfo_gain;
+    value_l = y;
+    value_r = y;
 
     if (value_l > Fixed_16_16::one)
         value_l = Fixed_16_16::one;
@@ -168,11 +143,3 @@ void Voice::set_vca_gain(uint16_t gain)
     vca_gain = Fixed_16_16::from_raw_value(gain);
 }
 
-void Voice::set_lfo(LFOTarget target, WaveType type, float freq, uint16_t depth)
-{
-    lfo_taget = target;
-    lfo_freq = freq;
-    lfo_depth = depth;
-    lfo.set_phase16_delta(lfo_freq * 65536.0f / 400.0f);
-    lfo.set_wave_type(type);
-}

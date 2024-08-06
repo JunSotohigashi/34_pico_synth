@@ -130,13 +130,6 @@ void main_core0()
     Voice voice1;
     Voice voice2;
 
-    // Voice voice[n_voice];
-    // for (uint8_t i = 0; i < n_voice; i++)
-    // {
-    //     voice[i].set_vco1_wave_type(WaveType::Saw);
-    //     voice[i].set_vco2_wave_type(WaveType::Saw);
-    // }
-
     bool gate1_old = false;
     bool gate2_old = false;
 
@@ -198,7 +191,7 @@ void main_core0()
             // VCF type, cutoff frequency and resonance control
             bool vcf_is_hpf = (stream[17] >> 7) & 1;
             uint16_t vcf_freq = stream[21] << 5;
-            Fixed_16_16 vcf_res = Fixed_16_16::from_raw_value((static_cast<int32_t>(stream[22]) << 9) + 46341); // Q>=1/sqrt(2)
+            Fixed_16_16 vcf_res = Fixed_16_16::from_raw_value((static_cast<int32_t>(stream[22]) << 8) + 46341); // Q>=1/sqrt(2)
             voice1.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
             voice2.set_vcf_freq_res(vcf_is_hpf, vcf_freq, vcf_res);
 
@@ -221,14 +214,6 @@ void main_core0()
             uint16_t vca_gain = stream[31] << 6;
             voice1.set_vca_gain(vca_gain);
             voice2.set_vca_gain(vca_gain);
-
-            LFOTarget lfo_target = static_cast<LFOTarget>(stream[17] & 0b111);
-            const WaveType lfo_types[6] = {WaveType::Saw, WaveType::Saw_Down, WaveType::Triangle, WaveType::Sine, WaveType::Square, WaveType::Noise};
-            WaveType lfo_type = lfo_types[(stream[17] >> 3) & 0b111];
-            float lfo_speed = (float)stream[32] * (float)stream[32] / 1048576.0f * 100.0f;
-            uint16_t lfo_depth = stream[33] >> 2 << 8; // forces 0~3 to 0
-            voice1.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);
-            voice2.set_lfo(lfo_target, lfo_type, lfo_speed, lfo_depth);
         }
 
         // 1Hz cycle
