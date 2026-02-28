@@ -3,10 +3,9 @@
     "tasks": [
         {
             "label": "Compile Project",
-            "type": "process",
+            "type": "shell",
             "isBuildCommand": true,
-            "command": "${userHome}/.pico-sdk/ninja/v1.12.1/ninja",
-            "args": ["-C", "${workspaceFolder}/build"],
+            "command": "${userHome}/.pico-sdk/cmake/v3.31.5/bin/cmake --fresh -S ${workspaceFolder} -B ${workspaceFolder}/build -G Ninja -D CMAKE_MAKE_PROGRAM=${userHome}/.pico-sdk/ninja/v1.12.1/ninja && ${userHome}/.pico-sdk/ninja/v1.12.1/ninja -C ${workspaceFolder}/build",
             "group": "build",
             "presentation": {
                 "reveal": "always",
@@ -14,7 +13,7 @@
             },
             "problemMatcher": "$gcc",
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1/ninja.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/cmake/v3.31.5/bin/cmake.exe --fresh -S ${workspaceFolder} -B ${workspaceFolder}/build -G Ninja -D CMAKE_MAKE_PROGRAM=${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1/ninja.exe && ${env:USERPROFILE}/.pico-sdk/ninja/v1.12.1/ninja.exe -C ${workspaceFolder}/build"
             }
         },
         {
