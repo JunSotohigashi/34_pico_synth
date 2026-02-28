@@ -61,27 +61,11 @@ if(BUILD_BOOTSTRAP_PICO_SYNTH)
 endif()
 
 set(OLD_DIR ${CMAKE_CURRENT_LIST_DIR}/old)
-set(KEYBOARD_DIR ${OLD_DIR}/pico-synth-keyboard)
 set(PANEL_DIR ${OLD_DIR}/pico-synth-panel)
 set(SOUND_DIR ${OLD_DIR}/pico-synth-sound)
 
-add_executable(pico-synth-keyboard
-    ${KEYBOARD_DIR}/pico-synth-keyboard.c
-    ${KEYBOARD_DIR}/usb_descriptors.c)
-pico_set_program_name(pico-synth-keyboard "pico-synth-keyboard")
-pico_set_program_version(pico-synth-keyboard "0.1")
-pico_enable_stdio_uart(pico-synth-keyboard 0)
-pico_enable_stdio_usb(pico-synth-keyboard 0)
-target_link_libraries(pico-synth-keyboard
-    pico_stdlib
-    pico_multicore
-    tinyusb_device
-    tinyusb_board)
-target_include_directories(pico-synth-keyboard PRIVATE
-    ${KEYBOARD_DIR}
-    ${CMAKE_CURRENT_LIST_DIR})
-pico_add_extra_outputs(pico-synth-keyboard)
-
+# Keyboard module (new implementation)
+add_subdirectory(keyboard)
 add_executable(pico-synth-panel
     ${PANEL_DIR}/pico-synth-panel.cpp
     ${PANEL_DIR}/spi_device.cpp
