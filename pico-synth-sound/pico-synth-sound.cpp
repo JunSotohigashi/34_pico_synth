@@ -23,7 +23,7 @@
 
 #define STREAM_LENGTH 34
 
-// global variablea
+// global variables
 queue_t sound_buffer;
 uint16_t stream[STREAM_LENGTH];
 volatile uint8_t stream_index = 0;
