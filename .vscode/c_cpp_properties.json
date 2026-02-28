@@ -5,8 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/keyboard/include",
-                "${workspaceFolder}/pico-synth-panel",
-                "${workspaceFolder}/pico-synth-sound",
+                "${workspaceFolder}/old/pico-synth-panel",
+                "${workspaceFolder}/old/pico-synth-sound",
                 "${userHome}/.pico-sdk/sdk/2.2.0/src",
                 "${userHome}/.pico-sdk/sdk/2.2.0/lib/tinyusb/src",
                 "${userHome}/.pico-sdk/sdk/2.2.0/**"
@@ -24,7 +24,6 @@
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "linux-gcc-arm",
-            "limitSymbolsChecked": 5000,
             "configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
