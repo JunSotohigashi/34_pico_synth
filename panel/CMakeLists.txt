@@ -11,7 +11,7 @@ endif()
 
 # Panel executable
 add_executable(pico-synth-panel
-    pico-synth-panel.cpp
+    src/main.cpp
 )
 
 # Include directories
@@ -24,7 +24,6 @@ target_link_libraries(pico-synth-panel
     pico_stdlib
     pico_multicore
     hardware_uart
-    hardware_adc
     hardware_spi
     hardware_gpio
 )
