@@ -33,27 +33,23 @@ static bool g_pedal_previous = false;
  */
 void core1_main() {
     uint16_t scan_results[N_PIN_HIGH];
+    ScanEvent scan_events[N_KEYS];
     
     while (true) {
         // Scan keyboard matrix
         g_scanner->scan(scan_results);
         
-        // Process scan results
-        uint8_t key_index = 0;
-        uint8_t velocity = 0;
-        KeyEvent event = g_scanner->process_scan(scan_results, key_index, velocity);
-        
-        if (event == KeyEvent::Press) {
-            // Match note numbering with legacy keyboard implementation.
-            uint8_t note = MIDI_BASE_NOTE + key_index;
-            MidiMessage msg = MidiMessage::note_on(note, velocity);
-            
+        // Process all key events found in this scan
+        const size_t event_count = g_scanner->process_scan(scan_results, scan_events, N_KEYS);
+        for (size_t i = 0; i < event_count; ++i) {
+            const ScanEvent& ev = scan_events[i];
+            const uint8_t note = MIDI_BASE_NOTE + ev.key_index;
+
+            MidiMessage msg = (ev.type == KeyEvent::Press)
+                ? MidiMessage::note_on(note, ev.velocity)
+                : MidiMessage::note_off(note);
+
             // Send to queue for Core 0 to transmit
-            queue_try_add(&g_midi_queue, &msg);
-        } else if (event == KeyEvent::Release) {
-            uint8_t note = MIDI_BASE_NOTE + key_index;
-            MidiMessage msg = MidiMessage::note_off(note);
-            
             queue_try_add(&g_midi_queue, &msg);
         }
         

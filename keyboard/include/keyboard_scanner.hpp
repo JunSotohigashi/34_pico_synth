@@ -6,6 +6,7 @@
 #pragma once
 
 #include "config.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -18,6 +19,12 @@ enum class KeyEvent : uint8_t {
     None,
     Press,
     Release,
+};
+
+struct ScanEvent {
+    KeyEvent type;
+    uint8_t key_index;
+    uint8_t velocity;
 };
 
 /**
@@ -41,11 +48,11 @@ public:
     /**
      * @brief Process scan results and detect key events
      * @param results Scan results from scan()
-     * @param key_index Output: index of changed key (if any)
-     * @param velocity Output: velocity value (fixed at 127 for now)
-     * @return Key event type
+     * @param events Output buffer for detected events
+     * @param max_events Maximum number of events that can be written
+     * @return Number of events written to events[]
      */
-    KeyEvent process_scan(const uint16_t* results, uint8_t& key_index, uint8_t& velocity);
+    size_t process_scan(const uint16_t* results, ScanEvent* events, size_t max_events);
     
 private:
     std::array<uint8_t, N_KEYS> velocity_;

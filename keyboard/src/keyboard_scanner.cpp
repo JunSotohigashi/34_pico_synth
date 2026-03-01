@@ -47,7 +47,9 @@ void KeyboardScanner::scan(uint16_t* results) {
     gpio_put_masked(PIN_HIGH_MASK, 0);
 }
 
-KeyEvent KeyboardScanner::process_scan(const uint16_t* results, uint8_t& key_index, uint8_t& velocity) {
+size_t KeyboardScanner::process_scan(const uint16_t* results, ScanEvent* events, size_t max_events) {
+    size_t count = 0;
+
     // KEY_INDEX is mapped to 6 matrix rows, each composed of 2 scan phases.
     for (uint8_t i = 0; i < N_KEYS; ++i) {
         const uint8_t row = KEY_INDEX[i] / N_PIN_LOW;
@@ -58,9 +60,10 @@ KeyEvent KeyboardScanner::process_scan(const uint16_t* results, uint8_t& key_ind
 
         if (!gate_on_[i] && key1 && key2) {
             gate_on_[i] = true;
-            key_index = i;
-            velocity = velocity_[i];
-            return KeyEvent::Press;
+            if (count < max_events) {
+                events[count++] = ScanEvent{KeyEvent::Press, i, velocity_[i]};
+            }
+            continue;
         }
 
         if (!gate_on_[i] && ((key1 && !key2) || (!key1 && key2)) && velocity_[i] > 1) {
@@ -71,13 +74,13 @@ KeyEvent KeyboardScanner::process_scan(const uint16_t* results, uint8_t& key_ind
         if (gate_on_[i] && !key1 && !key2) {
             gate_on_[i] = false;
             velocity_[i] = 127;
-            key_index = i;
-            velocity = 0;
-            return KeyEvent::Release;
+            if (count < max_events) {
+                events[count++] = ScanEvent{KeyEvent::Release, i, 0};
+            }
         }
     }
 
-    return KeyEvent::None;
+    return count;
 }
 
 } // namespace keyboard
