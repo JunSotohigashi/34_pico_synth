@@ -66,23 +66,9 @@ set(SOUND_DIR ${OLD_DIR}/pico-synth-sound)
 
 # Keyboard module (new implementation)
 add_subdirectory(keyboard)
-add_executable(pico-synth-panel
-    ${PANEL_DIR}/pico-synth-panel.cpp
-    ${PANEL_DIR}/spi_device.cpp
-    ${PANEL_DIR}/spi_mcp3008.cpp
-    ${PANEL_DIR}/spi_74hc595.cpp)
-pico_set_program_name(pico-synth-panel "pico-synth-panel")
-pico_set_program_version(pico-synth-panel "0.1")
-pico_enable_stdio_uart(pico-synth-panel 0)
-pico_enable_stdio_usb(pico-synth-panel 1)
-target_link_libraries(pico-synth-panel
-    pico_stdlib
-    pico_multicore
-    hardware_spi)
-target_include_directories(pico-synth-panel PRIVATE
-    ${PANEL_DIR}
-    ${CMAKE_CURRENT_LIST_DIR})
-pico_add_extra_outputs(pico-synth-panel)
+
+# Panel module (new implementation)
+add_subdirectory(panel)
 
 foreach(unit RANGE 0 7)
     math(EXPR unit_1 "${unit} * 2 + 1")
