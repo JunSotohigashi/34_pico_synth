@@ -10,8 +10,12 @@
 namespace keyboard {
 
 KeyboardScanner::KeyboardScanner()
-    : previous_state_{}, key_pressed_{}
+    : velocity_{}, gate_on_{}
 {
+    for (uint8_t i = 0; i < N_KEYS; ++i) {
+        velocity_[i] = 127;
+        gate_on_[i] = false;
+    }
 }
 
 void KeyboardScanner::init() {
@@ -44,36 +48,35 @@ void KeyboardScanner::scan(uint16_t* results) {
 }
 
 KeyEvent KeyboardScanner::process_scan(const uint16_t* results, uint8_t& key_index, uint8_t& velocity) {
-    // Compare with previous state to detect changes
-    for (uint8_t i = 0; i < N_PIN_HIGH; i++) {
-        if (results[i] != previous_state_[i]) {
-            uint16_t changed = results[i] ^ previous_state_[i];
-            
-            // Find first changed bit
-            for (uint8_t j = 0; j < N_PIN_LOW; j++) {
-                if (changed & (1 << j)) {
-                    uint8_t key_pos = i * N_PIN_LOW + j;
-                    
-                    // Check if this is a valid key
-                    for (uint8_t k = 0; k < N_KEYS; k++) {
-                        if (KEY_INDEX[k] == key_pos) {
-                            key_index = k;
-                            velocity = 127;  // Fixed velocity for now
-                            
-                            bool is_pressed = results[i] & (1 << j);
-                            key_pressed_[k] = is_pressed;
-                            previous_state_[i] = results[i];
-                            
-                            return is_pressed ? KeyEvent::Press : KeyEvent::Release;
-                        }
-                    }
-                }
-            }
-            
-            previous_state_[i] = results[i];
+    // KEY_INDEX is mapped to 6 matrix rows, each composed of 2 scan phases.
+    for (uint8_t i = 0; i < N_KEYS; ++i) {
+        const uint8_t row = KEY_INDEX[i] / N_PIN_LOW;
+        const uint8_t col = KEY_INDEX[i] % N_PIN_LOW;
+
+        const bool key1 = (results[row * 2] >> col) & 1u;
+        const bool key2 = (results[row * 2 + 1] >> col) & 1u;
+
+        if (!gate_on_[i] && key1 && key2) {
+            gate_on_[i] = true;
+            key_index = i;
+            velocity = velocity_[i];
+            return KeyEvent::Press;
+        }
+
+        if (!gate_on_[i] && ((key1 && !key2) || (!key1 && key2)) && velocity_[i] > 1) {
+            --velocity_[i];
+            continue;
+        }
+
+        if (gate_on_[i] && !key1 && !key2) {
+            gate_on_[i] = false;
+            velocity_[i] = 127;
+            key_index = i;
+            velocity = 0;
+            return KeyEvent::Release;
         }
     }
-    
+
     return KeyEvent::None;
 }
 

@@ -48,8 +48,8 @@ public:
     KeyEvent process_scan(const uint16_t* results, uint8_t& key_index, uint8_t& velocity);
     
 private:
-    std::array<uint16_t, N_PIN_HIGH> previous_state_;
-    std::array<bool, N_KEYS> key_pressed_;
+    std::array<uint8_t, N_KEYS> velocity_;
+    std::array<bool, N_KEYS> gate_on_;
 };
 
 } // namespace keyboard

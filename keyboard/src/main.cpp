@@ -44,14 +44,14 @@ void core1_main() {
         KeyEvent event = g_scanner->process_scan(scan_results, key_index, velocity);
         
         if (event == KeyEvent::Press) {
-            // Calculate MIDI note number (assuming C1 = 24 for key 0)
-            uint8_t note = 24 + key_index;
+            // Match note numbering with legacy keyboard implementation.
+            uint8_t note = MIDI_BASE_NOTE + key_index;
             MidiMessage msg = MidiMessage::note_on(note, velocity);
             
             // Send to queue for Core 0 to transmit
             queue_try_add(&g_midi_queue, &msg);
         } else if (event == KeyEvent::Release) {
-            uint8_t note = 24 + key_index;
+            uint8_t note = MIDI_BASE_NOTE + key_index;
             MidiMessage msg = MidiMessage::note_off(note);
             
             queue_try_add(&g_midi_queue, &msg);

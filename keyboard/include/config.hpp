@@ -32,6 +32,8 @@ constexpr uint32_t SCAN_INTERVAL_MS = 2;
 constexpr uint32_t SCAN_DELAY_US = 10;
 
 // Key mapping (76 keys)
+constexpr uint8_t MIDI_BASE_NOTE = 28;
+
 constexpr uint8_t KEY_INDEX[N_KEYS] = {
     80, 66, 52, 37, 23, 9, 79, 65, 51, 36, 22, 8, 78, 64, 50, 39, 25, 11,
     81, 67, 53, 40, 26, 12, 82, 68, 54, 41, 27, 13, 83, 69, 55, 28, 14, 0,
