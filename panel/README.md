@@ -299,6 +299,59 @@ panel/
 
 ---
 
+## クラス構造
+
+```mermaid
+classDiagram
+    class SPIDevice {
+        #spi_inst_t* spi_
+        #uint pin_cs_
+        +SPIDevice(spi, pin_cs)
+        +write_bytes(src, len) int
+        +write_read_bytes(src, dst, len) int
+        +read_bytes(dst, len) int
+    }
+
+    class SPIMCP3008 {
+        +SPIMCP3008(spi, pin_cs)
+        +read(channel) uint16_t
+    }
+
+    class SPI74HC595 {
+        -uint8_t value_8bit_
+        +SPI74HC595(spi, pin_cs)
+        +put_8bit(value) void
+        +put(pin, value) void
+        +get_value() uint8_t
+    }
+
+    class Selector {
+        -uint pin_sw_r_
+        -uint pin_sw_l_
+        -bool sw_r_old_
+        -bool sw_l_old_
+        -uint8_t n_state_
+        -uint8_t state_
+        -SPI74HC595** led_sr_
+        -uint8_t* led_pin_
+        -show_leds() void
+        +Selector(pin_sw_r, pin_sw_l, n_state, led_sr, led_pin)
+        +update() void
+        +get_state() uint8_t
+    }
+
+    SPIDevice <|-- SPIMCP3008 : private継承
+    SPIDevice <|-- SPI74HC595 : public継承
+    Selector o-- SPI74HC595 : 集約（LED制御）
+
+    note for SPIDevice "SPI通信の基底クラス\nCS制御とSPI読み書きを提供"
+    note for SPIMCP3008"10bit ADC (MCP3008)\n8チャンネル入力対応"
+    note for SPI74HC595 "8bit シフトレジスタ\nLED制御に使用"
+    note for Selector "UI スイッチ制御\nR/Lボタンで状態遷移"
+```
+
+---
+
 ## ビルド
 
 プロジェクトルート (`34_pico_synth/`) で:
