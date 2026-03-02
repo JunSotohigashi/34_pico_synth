@@ -74,6 +74,94 @@ UI スイッチ:
 
 ---
 
+## ハードウェア割り当て詳細
+
+### スイッチ (SW) - UI セレクタ
+
+| スイッチ | GPIO | 機能 | 状態数 | 説明 |
+|---------|------|------|--------|------|
+| **VCO1** | 29(R), 28(L) | VCO1 波形選択 | 4 | Saw, Sin, Tri, Square |
+| **VCO2** | 27(R), 26(L) | VCO2 波形選択 | 4 | Saw, Sin, Tri, Square |
+| **VCF** | 25(R), 24(L) | フィルタタイプ | 2 | LPF, HPF |
+| **LFO Wave** | 23(R), 22(L) | LFO 波形選択 | 6 | Saw↑, Saw↓, Sin, Tri, Square, Random |
+| **LFO Target** | 21(R), 20(L) | LFO 変調ターゲット | 6 | VCO2, VCO1+2, PWM, Mix, Cutoff, Gain |
+
+**操作**: 右ボタン (R) で選択肢を進む、左ボタン (L) で選択肢を戻す
+
+
+### ポテンショメータ (VR) - ADC 入力割り当て
+
+#### ADC1 (MCP3008 #1) - 8チャンネル
+
+| CH | GPIO CS | 機能 | 説明 |
+|----|---------|------|------|
+| 0 | 7 | **VCF CutOff** | フィルタ遮断周波数（20Hz～20kHz） |
+| 1 | 7 | **VCO Mix** | VCO1/VCO2 ミックスバランス |
+| 2 | 7 | **VCO Duty** | PWM デューティ（パルス幅調整） |
+| 3 | 7 | **VCO2 Tune** | VCO2 チューニング（±1 octave） |
+| 4 | 7 | **VCF Release** | フィルタ EG リリースタイム |
+| 5 | 7 | **VCF Decay** | フィルタ EG デケイタイム |
+| 6 | 7 | **VCF Attack** | フィルタ EG アタックタイム |
+| 7 | 7 | **VCF Resonance** | フィルタレゾナンス (Q)「ピーク」 |
+
+#### ADC2 (MCP3008 #2) - 8チャンネル
+
+| CH | GPIO CS | 機能 | 説明 |
+|----|---------|------|------|
+| 0 | 8 | **LFO Depth** | LFO変調デプス（変調深さ） |
+| 1 | 8 | **LFO Speed** | LFO速度（周波数） |
+| 2 | 8 | **VCA Gain** | 出力ゲイン（マスターボリューム） |
+| 3 | 8 | **VCA Release** | 音量 EG リリースタイム |
+| 4 | 8 | **VCA Sustain** | 音量 EG サスティンレベル |
+| 5 | 8 | **VCA Decay** | 音量 EG デケイタイム |
+| 6 | 8 | **VCA Attack** | 音量 EG アタックタイム |
+| 7 | 8 | **VCF Sustain** | フィルタ EG サスティンレベル |
+
+
+### LED - シフトレジスタ (74HC595) 割り当て
+
+| シフトレジスタ | GPIO CS | 機能 | LED数 | 説明 |
+|---------------|---------|------|-------|------|
+| **SR_UNIT_LOW** | 2 | ユニット 0-7 状態表示 | 8 | Unit 0-7 が発音中かを表示 |
+| **SR_UNIT_HIGH** | 5 | ユニット 8-15 状態表示 | 8 | Unit 8-15 が発音中かを表示 |
+| **SR_VCO** | 6 | VCO1/VCO2 波形 LED | 8 | 選択中の VCO1/VCO2 波形 を表示 |
+| **SR_LFO_HIGH_VCF** | 3 | LFO波形・VCFモード LED | 8 | LFO 波形・VCF タイプを表示 |
+| **SR_LFO_LOW** | 4 | LFO ターゲット LED | 8 | LFO 変調ターゲットを表示 |
+
+#### 詳細ビット割り当て
+
+##### SR_UNIT_LOW (Pin: CS2, Unit 8-15 状態)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| Unit| 15| 14| 13| 12| 11| 10| 9 | 8 |
+
+##### SR_UNIT_HIGH (Pin: CS5, Unit 0-7 状態)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| Unit| 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+##### SR_VCO (Pin: CS6, VCO1/VCO2 波形選択)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| 機能| VCO2 Tri | VCO2 Sin | VCO2 Saw | VCO1 Square | VCO1 Tri | VCO1 Sin | VCO1 Saw | VCO2 Square |
+| LED Pin| 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+##### SR_LFO_HIGH_VCF (Pin: CS3, VCF + LFO 波形)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| 機能| VCF LPF | LFO Random | LFO Square | LFO Tri | LFO Sin | LFO Saw↓ | LFO Saw↑ | VCF HPF |
+| 波形| LPF | Random | Square | Tri | Sin | Saw↓ | Saw↑ | HPF |
+| LED Pin| 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+##### SR_LFO_LOW (Pin: CS4, LFO ターゲット)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|-----|---|---|---|---|---|---|---|---|
+| 機能| 予備 | LFO Gain | LFO Cutoff | LFO Mix | LFO PWM | LFO VCO1+2 | LFO VCO2 | 予備 |
+| ターゲット| - | Gain | Cutoff | Mix | PWM | VCO1+2 | VCO2 | - |
+| LED Pin| 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+
+---
+
 ## アーキテクチャ（現在）
 
 ### メインループ フロー
