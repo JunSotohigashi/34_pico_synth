@@ -1,6 +1,4 @@
 #include <pico/stdlib.h>
-#include <pico/multicore.h>
-#include <pico/sync.h>
 #include <hardware/uart.h>
 #include <hardware/spi.h>
 #include <hardware/gpio.h>
@@ -14,10 +12,9 @@
 #include "selector.hpp"
 
 // ============================================================================
-// Global Variables (Shared between cores)
+// Global Variables
 // ============================================================================
 
-semaphore_t g_sem;
 uint16_t g_unit_state = 0;              // 16-bit bitmap for Unit 0-15
 uint8_t g_unit_note[N_UNIT] = {0};      // Note number for each unit
 uint8_t g_unit_velocity[N_UNIT] = {0};  // Velocity for each unit
@@ -164,93 +161,84 @@ void handle_sustain(uint8_t cc_value) {
 }
 
 /// ============================================================================
-// Core 1: UART MIDI Reception Thread
+// UART MIDI Processing State (Static)
 // ============================================================================
 
-void core1_uart_midi() {
-    char buf[256] = {0};
-    char buf_msg[12] = {0};
-    uint8_t buf_index = 0;
-    
-    // Initialize bidirectional mappings
-    for (uint8_t i = 0; i < 128; i++) {
-        g_note_to_unit[i] = 255;  // 255 = unassigned
-    }
-    
-    KeyState note_state[128] = {KeyState::OFF};
-    bool sustain = false;
-    uint32_t history_counter = 1;  // Global timestamp for voice stealing priority
-    
-    while (true) {
-        if (!uart_is_readable(uart0)) {
-            continue;
-        }
-        
-        buf[buf_index] = uart_getc(uart0);
+static char uart_buf[256] = {0};
+static char uart_msg[12] = {0};
+static uint8_t uart_buf_index = 0;
+static KeyState note_state[128] = {KeyState::OFF};
+static bool sustain = false;
+static uint32_t history_counter = 1;
+
+/// ============================================================================
+// UART MIDI Reception (Non-blocking)
+// ============================================================================
+
+void handle_uart_midi_nonblocking() {
+    // Process all available UART data
+    while (uart_is_readable(uart0)) {
+        uart_buf[uart_buf_index] = uart_getc(uart0);
         
         // Wait for message end (newline)
-        if (buf[buf_index] != '\n') {
-            buf_index++;
+        if (uart_buf[uart_buf_index] != '\n') {
+            uart_buf_index++;
             continue;
         }
         
         // Extract last 9 characters: "90 3c 7f\n"
         for (uint16_t i = 0; i <= 8; i++) {
-            buf_msg[i] = buf[(buf_index + i - 8) & 0xFF];
+            uart_msg[i] = uart_buf[(uart_buf_index + i - 8) & 0xFF];
         }
-        buf_msg[10] = '\0';
+        uart_msg[10] = '\0';
         
         // Parse ASCII hex to binary: "90 3c 7f" → [0x90, 0x3c, 0x7f]
         uint8_t msg[3];
-        sscanf(buf_msg, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
+        sscanf(uart_msg, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
         
-        sem_acquire_blocking(&g_sem);
-        {
-            uint8_t status = msg[0];
-            uint8_t data1 = msg[1];
-            uint8_t data2 = msg[2];
+        uint8_t status = msg[0];
+        uint8_t data1 = msg[1];
+        uint8_t data2 = msg[2];
+        
+        // Note Off (0x80 or 0x90 with velocity=0)
+        if ((status == 0x80) || (status == 0x90 && data2 == 0)) {
+            uint8_t note = data1;
+            note_state[note] = sustain ? KeyState::RELEASE : KeyState::OFF;
+            handle_note_off(note, sustain);
+        }
+        // Note On (0x90 with velocity > 0)
+        else if (status == 0x90 && data2 != 0) {
+            uint8_t note = data1;
+            uint8_t velocity = data2;
+            note_state[note] = KeyState::PUSH;
+            handle_note_on(note, velocity, history_counter, sustain, note_state);
+        }
+        // Control Change (0xB0)
+        else if (status == 0xB0) {
+            uint8_t cc_num = data1;
+            uint8_t cc_val = data2;
             
-            // Note Off (0x80 or 0x90 with velocity=0)
-            if ((status == 0x80) || (status == 0x90 && data2 == 0)) {
-                uint8_t note = data1;
-                note_state[note] = sustain ? KeyState::RELEASE : KeyState::OFF;
-                handle_note_off(note, sustain);
-            }
-            // Note On (0x90 with velocity > 0)
-            else if (status == 0x90 && data2 != 0) {
-                uint8_t note = data1;
-                uint8_t velocity = data2;
-                note_state[note] = KeyState::PUSH;
-                handle_note_on(note, velocity, history_counter, sustain, note_state);
-            }
-            // Control Change (0xB0)
-            else if (status == 0xB0) {
-                uint8_t cc_num = data1;
-                uint8_t cc_val = data2;
+            // Sustain Pedal (CC 64)
+            if (cc_num == 0x40) {
+                sustain = (cc_val != 0);
                 
-                // Sustain Pedal (CC 64)
-                if (cc_num == 0x40) {
-                    sustain = (cc_val != 0);
-                    
-                    // Release all sustained notes when sustain OFF
-                    if (!sustain) {
-                        for (uint8_t note = 0; note < 128; note++) {
-                            if (note_state[note] == KeyState::RELEASE) {
-                                uint8_t unit = g_note_to_unit[note];
-                                if (unit != 255 && (g_unit_state & (1 << unit))) {
-                                    g_unit_sustain &= ~(1 << unit);
-                                    release_unit(unit);
-                                }
-                                note_state[note] = KeyState::OFF;
+                // Release all sustained notes when sustain OFF
+                if (!sustain) {
+                    for (uint8_t note = 0; note < 128; note++) {
+                        if (note_state[note] == KeyState::RELEASE) {
+                            uint8_t unit = g_note_to_unit[note];
+                            if (unit != 255 && (g_unit_state & (1 << unit))) {
+                                g_unit_sustain &= ~(1 << unit);
+                                release_unit(unit);
                             }
+                            note_state[note] = KeyState::OFF;
                         }
                     }
                 }
             }
         }
-        sem_release(&g_sem);
         
-        buf_index++;
+        uart_buf_index++;
     }
 }
 
@@ -285,7 +273,6 @@ void build_stream(uint16_t stream[STREAM_LENGTH],
     stream[0] = 0xFFFF;
     
     // Words 1-16: Unit state (note, velocity, active flag)
-    sem_acquire_blocking(&g_sem);
     for (uint8_t ch = 0; ch < N_UNIT; ch++) {
         bool is_active = (g_unit_state >> ch) & 1;
         bool is_sustained = (g_unit_sustain >> ch) & 1;
@@ -300,7 +287,7 @@ void build_stream(uint16_t stream[STREAM_LENGTH],
                        | g_unit_note[ch] << 8 
                        | velocity;
     }
-    sem_release(&g_sem);
+    
     
     // Word 17: Mode settings (selector states)
     stream[17] = sel_vco1.get_state() << 10 
@@ -340,12 +327,11 @@ void transmit_stream(uint16_t stream[STREAM_LENGTH]) {
 }
 
 /// ============================================================================
-// Main (Core 0): Main Loop with Selector, LED, ADC, and SPI Updates
+// Main: Single Core Loop with UART, Selector, LED, ADC, and SPI Updates
 // ============================================================================
 
 int main() {
     stdio_init_all();
-    sem_init(&g_sem, 1, 1);
     
     // ========================================================================
     // Hardware Initialization
@@ -406,29 +392,33 @@ int main() {
     uint8_t lfo_target_pin[6] = {1, 2, 3, 4, 5, 6};
     Selector sel_lfo_target(PIN_SW_LFO_TARGET_R, PIN_SW_LFO_TARGET_L, 6, lfo_target_sr, lfo_target_pin);
     
-    // printf("=== Panel Module Started ===\n");
-    // printf("Core 0: Main loop (Selector, LED, ADC, SPI)\n");
-    // printf("Core 1: UART MIDI reception + Voice Allocation\n");
+    // Initialize bidirectional mapping
+    for (uint8_t i = 0; i < 128; i++) {
+        g_note_to_unit[i] = 255;  // 255 = unassigned
+    }
     
-    // Launch Core 1 for MIDI processing
-    multicore_launch_core1(core1_uart_midi);
+    // printf("=== Panel Module Started (Single Core) ===\n");
+    // printf("Main loop: UART MIDI + Selector + LED + ADC + SPI\n");
     
     // ========================================================================
-    // Main Loop: Update Selectors → Update LEDs → Read ADCs → Build Stream → Send
+    // Main Loop: UART → Selectors → LEDs → ADCs → Build Stream → Send
     // ========================================================================
     uint16_t stream[STREAM_LENGTH];
     
     while (true) {
-        // 1. Update selector switches and their LED feedback
+        // 1. Handle UART MIDI messages (non-blocking)
+        handle_uart_midi_nonblocking();
+        
+        // 2. Update selector switches and their LED feedback
         update_selectors(sel_vco1, sel_vco2, sel_vcf, sel_lfo_wave, sel_lfo_target);
         
-        // 2. Update unit status LEDs based on active voices
+        // 3. Update unit status LEDs based on active voices
         update_unit_leds(led_unit_high, led_unit_low);
         
-        // 3. Build 34-word parameter stream
+        // 4. Build 34-word parameter stream
         build_stream(stream, adc1, adc2, sel_vco1, sel_vco2, sel_vcf, sel_lfo_wave, sel_lfo_target);
         
-        // 4. Transmit stream to all sound units via SPI
+        // 5. Transmit stream to all sound units via SPI
         transmit_stream(stream);
     }
     
