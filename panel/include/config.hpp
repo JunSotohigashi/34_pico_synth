@@ -47,7 +47,7 @@ constexpr uint8_t PIN_SW_LFO_TARGET_L = 20;
 constexpr uint8_t N_UNIT = 16; // 8 Pico × 2 channels
 
 // Stream Configuration
-constexpr uint8_t STREAM_LENGTH = 34; // Words (16-bit each)
+constexpr uint8_t STREAM_LENGTH = 12; // 12 params per unit (16-bit each)
 
 // MIDI Constants
 constexpr uint8_t MIDI_NOTE_ON = 0x90;

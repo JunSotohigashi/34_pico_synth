@@ -178,8 +178,12 @@ int main()
         handle_uart_midi(&sound_mgr);
         if (g_send_flag)
         {
-            sound_mgr.serialize(stream);
-            transmit_stream(stream);
+            // Send parameters for each unit sequentially
+            for (uint8_t unit = 0; unit < 16; unit++)
+            {
+                sound_mgr.serialize(unit, stream);
+                transmit_stream(stream);
+            }
             g_send_flag = false;
         }
     }

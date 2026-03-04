@@ -57,39 +57,55 @@ void SoundModuleManager::update()
     voice_allocator_->update(sound_units_);
 }
 
-void SoundModuleManager::serialize(uint16_t *buf)
+void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
 {
-    buf[0] = 0xFFFF;
+    // Send 12 params for a single unit
+    // Format per unit:
+    // [0]: Destination Unit (0-15)
+    // [1]: VCO Freq (0-65535 Hz)
+    // [2]: VCO1 WaveType (0-3)
+    // [3]: VCO2 WaveType (0-3)
+    // [4]: VCO1 Duty (0-65535)
+    // [5]: VCO2 Offset (-32768~32767 Hz)
+    // [6]: VCO Mix (0-65535)
+    // [7]: VCF Type (0-1)
+    // [8]: VCF Cutoff (0-65535 Hz)
+    // [9]: VCF Resonance (0-65535)
+    // [10]: VCA Gain Left (0-65535 = 0.0-1.0)
+    // [11]: VCA Gain Right (0-65535 = 0.0-1.0)
 
-    for (uint8_t i = 0; i < 16; i++)
-    {
-        uint8_t note = voice_allocator_->get_unit_note(i);
-        uint8_t velocity = voice_allocator_->get_unit_velocity(i);
-        bool is_active = (voice_allocator_->get_unit_state(i) != SoundUnitState::IDLE);
-        buf[i + 1] = (is_active ? 1 : 0) << 15 | (note << 8) | velocity;
-    }
+    // [0] Destination Unit
+    buf[0] = unit_id;
 
-    uint8_t vco1_mode = static_cast<uint8_t>(panel_manager_->get_vco1_wavetype());
-    uint8_t vco2_mode = static_cast<uint8_t>(panel_manager_->get_vco2_wavetype());
-    uint8_t vcf_mode = 0;
-    uint8_t lfo_wave = static_cast<uint8_t>(panel_manager_->get_lfo_wavetype());
-    uint8_t lfo_target = static_cast<uint8_t>(panel_manager_->get_lfo_target());
-    buf[17] = (vco1_mode << 10) | (vco2_mode << 8) | (vcf_mode << 7) | (lfo_wave << 3) | lfo_target;
+    // [1] VCO Frequency from voice note
+    uint8_t note = voice_allocator_->get_unit_note(unit_id);
+    // Simplified: use note directly; Sound module will convert to frequency
+    buf[1] = note & 0xFFFF;
 
-    buf[18] = panel_manager_->get_vco1_duty();
-    buf[19] = panel_manager_->get_vco2_offset();
-    buf[20] = panel_manager_->get_vco_mix();
-    buf[21] = panel_manager_->get_vcf_cutoff();
-    buf[22] = panel_manager_->get_vcf_resonance();
-    buf[23] = panel_manager_->get_vcf_attack();
-    buf[24] = panel_manager_->get_vcf_decay();
-    buf[25] = panel_manager_->get_vcf_sustain();
-    buf[26] = 0;
-    buf[27] = panel_manager_->get_vca_attack();
-    buf[28] = panel_manager_->get_vca_decay();
-    buf[29] = panel_manager_->get_vca_sustain();
-    buf[30] = panel_manager_->get_vca_release();
-    // buf[31] = panel_manager_->get_vca_gain();
-    buf[32] = panel_manager_->get_lfo_freq();
-    buf[33] = panel_manager_->get_lfo_depth();
+    // [2-3] VCO WaveTypes
+    buf[2] = static_cast<uint16_t>(panel_manager_->get_vco1_wavetype());
+    buf[3] = static_cast<uint16_t>(panel_manager_->get_vco2_wavetype());
+
+    // [4] VCO1 Duty (0-65535)
+    buf[4] = panel_manager_->get_vco1_duty();
+
+    // [5] VCO2 Offset (-32768~32767)
+    int16_t vco2_offset = static_cast<int16_t>(panel_manager_->get_vco2_offset());
+    buf[5] = static_cast<uint16_t>(vco2_offset);
+
+    // [6] VCO Mix (0-65535)
+    buf[6] = panel_manager_->get_vco_mix();
+
+    // [7] VCF Type (0=LPF, 1=HPF)
+    buf[7] = 0; // TODO: get from panel_manager if VCF type selector added
+
+    // [8] VCF Cutoff (0-65535 Hz)
+    buf[8] = panel_manager_->get_vcf_cutoff();
+
+    // [9] VCF Resonance (0-65535)
+    buf[9] = panel_manager_->get_vcf_resonance();
+
+    // [10-11] VCA Gains (0-65535 = 0.0-1.0 for each channel)
+    buf[10] = 65535; // Left gain (full volume)
+    buf[11] = 65535; // Right gain (full volume)
 }

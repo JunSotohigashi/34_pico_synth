@@ -18,7 +18,7 @@ public:
     ~SoundModuleManager();
 
     void update();
-    void serialize(uint16_t* buf);
+    void serialize(uint8_t unit_id, uint16_t* buf);
 
     VoiceAllocator* get_voice_allocator() { return voice_allocator_; }
 };
