@@ -191,7 +191,7 @@ panel/
 │   ├── spi_device.hpp            # SPI 基底クラス
 │   ├── spi_mcp3008.hpp           # ADC (MCP3008) クラス
 │   ├── spi_74hc595.hpp           # シフトレジスタ (74HC595) クラス
-│   └── selector.hpp              # UI セレクタロジック
+│   └── toggle_sw.hpp             # UI セレクタロジック
 └── src/
     └── main.cpp                  # メイン処理（シングルコア）
 ```
@@ -203,205 +203,215 @@ panel/
 
 ```mermaid
 classDiagram
-    direction BT
-    
-    %% ===== エンベロープジェネレータクラス =====
-    class EG {
-        -value: float
-        -state: EGState
-        -attack: float
-        -decay: float
-        -sustain: float
-        -release: float
-        -tau: float
-        -cycle: uint16_t
-        +get_value() float
-        +gate_trigger() void
-        +gate_off() void
-        +set_adsr(a, d, s, r: float) void
-    }
+    direction TB
 
-    %% ===== パラメータクラス: 機能別データ構造 =====
-    class VCO {
-        <<enumeration>> VCOWaveType
-        -freq: float
-        -wavetype1: VCOWaveType
-        -wavetype2: VCOWaveType
-        -duty: uint8_t
-        -pitch_offset: int16_t
-        -mix: uint8_t
-        +get_freq() float
-        +get_wavetype1() WaveType
-        +get_wavetype2() WaveType
-        +get_duty() uint8_t
-        +get_mix() uint8_t
-        +set_freq(f: float) void
-        +set_waveforms(w1, w2: WaveType) void
-    }
-
-    class VCF {
-        -filtertype: uint8_t
-        -cutoff: float
-        -resonance: float
-        -eg_int: float
-        +get_filtertype() uint8_t
-        +get_cutoff() float
-        +get_resonance() float
-        +get_eg_intensity() float
-        +set_filtertype(f: uint8_t) void
-        +set_cutoff(c: float) void
-    }
-
-    class VCA {
-        -gain: float
-        +get_gain() float
-        +set_gain(g: float) void
-    }
-
-    class LFO {
-        <<enumeration>> LFOWaveType
-        <<enumeration>> LFOTarget
-        -wavetype: LFOWaveType
-        -target: LFOTarget
-        -rate: float
-        -depth: float
-        -phase: float
-        +get_value() float
-        +update() void
-        +reset() void
-        +set_waveform(w: uint8_t) void
-        +set_target(t: uint8_t) void
-        +set_rate_depth(r, d: float) void
+    class SoundModuleManager {
+        - sound_units[16]: SoundUnit*
+        - voice_allocator: VoiceAllocator*
+        - panel_manager: PanelManager*
+        - serialized[STREAM_LENGTH]: uint16_t
+        + update() void
+        + serialize(buf: uint16_t*) void
     }
 
     class SoundUnit {
-        -vco: VCO*
-        -vcf: VCF*
-        -vcf_eg: EG*
-        -vca: VCA*
-        -vca_eg: EG*
-        -lfo: LFO*
-        -portamento_tau: float
-        -target_freq: float
-        -current_freq: float
-        -velocity: uint8_t
-        +gate_trigger(note: uint8_t, vel: uint8_t) void
-        +gate_off() void
-        +set_note(note: uint8_t) void
-        +set_velocity(v: uint8_t) void
-        +update() void
-        +serialize(buf: uint16_t*) void
+        - vco: VCO*
+        - vcf: VCF*
+        - vcf_eg: EG*
+        - vca: VCA*
+        - vca_eg: EG*
+        - lfo: LFO*
+        - portamento_tau: float
+        - target_freq: float
+        - current_freq: float
+        - velocity: uint8_t
+        + gate_on(note: uint8_t, vel: uint8_t) void
+        + gate_off() void
+        + set_note(note: uint8_t) void
+        + set_velocity(v: uint8_t) void
+        + update() void
+        + serialize(buf: uint16_t*) void
     }
 
-    class SoundModuleManager {
-        -units: SoundUnit[16]
-        -adc_mgr: ADCManager*
-        -sel_vco1: TriStateToggle*
-        -sel_vco2: TriStateToggle*
-        -sel_vcf: TriStateToggle*
-        -sel_lfo_wave: TriStateToggle*
-        -sel_lfo_target: TriStateToggle*
-        -led_mgr: LEDManager*
-        +SoundModuleManager(adc: ADCManager*, toggles[], leds: LEDManager*)
-        +update() void
-        +get_unit(idx: uint8_t) SoundUnit*
-        +serialize(buf: uint16_t*) void
+    class VCO {
+        - freq: float
+        - wavetype1: VCOWaveType
+        - wavetype2: VCOWaveType
+        - vco1_duty: float
+        - vco2_offset: float
+        - mix: float
+        + set_freq(freq: float) void
+        + set_wavetype1(wavetype: WaveType) void
+        + set_wavetype2(wavetype: WaveType) void
+        + set_vco1_duty(duty: float) void
+        + set_vco2_offset(offset: float) void
+        + set_mix(mix: float) void
+        + serialize(buf: uint16_t*) void
     }
 
-    %% ===== 入力管理クラス =====
-    class ADCManager {
-        -adc1: SPIMCP3008
-        -adc2: SPIMCP3008
-        +read_vco(vco: VCO*) void
-        +read_vcf(vcf: VCF*) void
-        +read_vca(vca: VCA*) void
-        +read_lfo(lfo: LFO*) void
+    class VCF {
+        - filter: VCFFilterType
+        - cutoff_freq: float
+        - resonance: float
+        + set_filter(filter: VCFFilterType) void
+        + set_cutoff_freq(cutoff_freq: float) void
+        + set_resonance(resonance: float) void
+        + serialize(buf: uint16_t*) void
     }
 
-    %% ===== 出力管理クラス =====
-    class LEDManager {
-        -led_unit_low: SPI74HC595
-        -led_unit_high: SPI74HC595
-        -led_lfo_high_vcf: SPI74HC595
-        -led_lfo_low: SPI74HC595
-        -led_vco: SPI74HC595
-        +update_unit_leds(units: SoundUnit[16]) void
-        +update_mode_leds(sel_idx: uint8_t*) void
-        +update_all(mgr: SoundModuleManager*) void
+    class VCA {
+        - gain: float
+        - pan: float
+        + set_gain(gain: float) void
+        + set_pan(pan: float) void
+        + serialize(buf: uint16_t*) void 
     }
 
-    %% ===== 音声処理クラス =====
+    class EG {
+        - value: float
+        - state: EGState
+        - attack: float
+        - decay: float
+        - sustain: float
+        - release: float
+        - eg_int: float
+        + set_adsr(a, d, s, r, eg_int: uint8_t) void
+        + gate_on() void
+        + gate_off() void
+        + update() void
+        + get_value() float
+    }
+
+    class LFO {
+        - wavetype: LFOWaveType
+        - target: LFOTarget
+        - freq: float
+        - depth: float
+        - time: float
+        + set_wavetype(wavetype: LFOWaveType) void
+        + set_target(target: LFOTarget) void
+        + set_freq(freq: float) void
+        + set_depth(depth: float) void
+        + update() void
+        + get_value(target: LFOTarget): float
+    }
+
     class VoiceAllocator {
-        -note_to_unit[128]: uint8_t
-        -unit_note[16]: uint8_t
-        -unit_velocity[16]: uint8_t
-        -unit_state: uint16_t
-        -unit_sustain: uint16_t
-        +handle_note_on(note, velocity: uint8_t) void
-        +handle_note_off(note: uint8_t) void
-        +apply_to_units(units: SoundUnit[16]) void
+        - note_to_unit[128]: uint8_t
+        - unit_to_note[16]: uint8_t
+        - unit_velocity[16]: uint8_t
+        - unit_state: SoundUnitState
+        + handle_note_on(note, velocity: uint8_t) void
+        + handle_note_off(note: uint8_t) void
+        + handle_sustain_on(): void
+        + handle_sustain_off(): void
+        + update(units: SoundUnit[16]) void
     }
 
-    %% ===== ストリーム管理クラス =====
-    class ParameterStreamer {
-        -sound: SoundModuleManager*
-        +build_stream(stream: uint16_t[34]) void
-        +send_stream(stream: uint16_t[34]) void
+    class PanelManager {
+        - sel_vco1: Selector*
+        - sel_vco2: Selector*
+        - sel_vcf: Selector*
+        - sel_lfo_wavetype: Selector*
+        - sel_lfo_target: Selector*
+        - adc1: SPIMCP3008
+        - adc2: SPIMCP3008
+        - led_unit_low: SPI74HC595
+        - led_unit_high: SPI74HC595
+        - led_lfo_high_vcf: SPI74HC595
+        - led_lfo_low: SPI74HC595
+        - led_vco: SPI74HC595
+        - sound_unit_status: uint16_t
+        - vco1_wavetype: VCOWaveType
+        - vco2_wavetype: VCOWaveType
+        - vco1_duty: uint16_t
+        - vco2_offset: uint16_t
+        - vco_mix: uint16_t
+        - vcf_cutoff: uint16_t
+        - vcf_resonance: uint16_t
+        - vcf_eg_int: uint16_t
+        - vcf_attack: uint16_t
+        - vcf_decay: uint16_t
+        - vcf_sustain: uint16_t
+        - vca_attack: uint16_t
+        - vca_decay: uint16_t
+        - vca_sustain: uint16_t
+        - vca_release: uint16_t
+        - vca_gain: uint16_t
+        - vca_pan: uint16_t
+        - portamento: uint16_t
+        - lfo_wavetype: LFOWaveType
+        - lfo_target: LFOTarget
+        - lfo_freq: uint16_t
+        - lfo_depth: uint16_t
+        + set_sound_unit_status(status: uint16_t)
+        + get_vco1_wavetype(): VCOWaveType
+        + get_vco2_wavetype(): VCOWaveType
+        + get_vco1_duty(): uint16_t
+        + get_vco2_offset(): uint16_t
+        + get_vco_mix(): uint16_t
+        + get_vcf_cutoff(): uint16_t
+        + get_vcf_resonance(): uint16_t
+        + get_vcf_eg_int(): uint16_t
+        + get_vcf_attack(): uint16_t
+        + get_vcf_decay(): uint16_t
+        + get_vcf_sustain(): uint16_t
+        + get_vca_attack(): uint16_t
+        + get_vca_decay(): uint16_t
+        + get_vca_sustain(): uint16_t
+        + get_vca_release(): uint16_t
+        + get_vca_gain(): uint16_t
+        + get_vca_pan(): uint16_t
+        + get_portamento(): uint16_t
+        + get_lfo_wavetype(): LFOWaveType
+        + get_lfo_target(): LFOTarget
+        + get_lfo_freq(): uint16_t
+        + get_lfo_depth(): uint16_t
+        + update() void
     }
 
-    %% ===== 元のハードウェア抽象化クラス =====
+    %% ===== ハードウェア抽象化クラス =====
     class SPIDevice {
-        #spi_inst_t* spi_
-        #uint pin_cs_
-        +write_bytes(src: uint8_t*, len: size_t) int
-        +write_read_bytes(src: uint8_t*, dst: uint8_t*, len: size_t) int
-        +read_bytes(dst: uint8_t*, len: size_t) int
+        # spi_inst_t* spi_
+        # uint pin_cs_
+        + write_bytes(src: uint8_t*, len: size_t) int
+        + write_read_bytes(src: uint8_t*, dst: uint8_t*, len: size_t) int
+        + read_bytes(dst: uint8_t*, len: size_t) int
     }
 
     class SPIMCP3008 {
-        +read(channel: uint8_t) uint16_t
+        + read(channel: uint8_t) uint16_t
     }
 
     class SPI74HC595 {
-        -value_8bit_: uint8_t
-        +put_8bit(value: uint8_t) void
-        +put(pin: uint8_t, value: bool) void
+        - value_8bit_: uint8_t
+        + put_8bit(value: uint8_t) void
+        + put(pin: uint8_t, value: bool) void
     }
 
-    class TriStateToggle {
-        -pin_sw_r_: uint
-        -pin_sw_l_: uint
-        -state_: uint8_t
-        +update() void
-        +get_state() uint8_t
+    class Selector {
+        - pin_sw_r_: uint
+        - pin_sw_l_: uint
+        - state_: uint8_t
+        + update() void
+        + get_state() uint8_t
     }
 
     %% ===== 関係定義 =====
-    %% パラメータ集約
+    SoundModuleManager *-- SoundUnit
     SoundUnit *-- VCO
     SoundUnit *-- VCF
     SoundUnit *-- VCA
     SoundUnit *-- LFO
     SoundUnit *-- EG : vcf_eg
     SoundUnit *-- EG : vca_eg
-    SoundModuleManager *-- SoundUnit
 
-    %% SoundModuleManager が各マネージャを統合
-    SoundModuleManager --> ADCManager : uses
-    SoundModuleManager --> TriStateToggle : reads all 5 toggles
-    SoundModuleManager --> LEDManager : controls
-    SoundModuleManager --> VoiceAllocator : integrates voice state
+    SoundModuleManager *-- PanelManager
+    SoundModuleManager *-- VoiceAllocator
 
-    %% ADCManager の依存
-    ADCManager --> SPIMCP3008
-
-    %% LEDManager の依存
-    LEDManager --> SPI74HC595
-
-    %% ストリーマが SoundModuleManager を使用
-    ParameterStreamer --> SoundModuleManager
-
-    %% ハードウェア継承
+    PanelManager o-- Selector
+    PanelManager o-- SPIMCP3008
+    PanelManager o-- SPI74HC595
     SPIDevice <|-- SPIMCP3008
     SPIDevice <|-- SPI74HC595
 ```
@@ -409,88 +419,6 @@ classDiagram
 ---
 
 
-### クラス詳細
-1. **SoundModuleManager** - 中心的な統合マネージャ
-   - SoundUnit[16] を保持・管理
-   - ADCManager への参照で ADC値を読み込み
-   - 5個の TriStateToggle を直接管理（VCO1/VCO2/VCF/LFO波形/LFOターゲット）
-   - LEDManager を制御
-   - `update()` メソッドで全入出力を一括処理
-
-2. **SoundUnit** - 各音声ユニット
-   - VCO, VCF, VCA, LFO の各パラメータクラスを保持
-   - EG (vcf_eg, vca_eg) を内部保持し、2系統のエンベロープを管理
-   - gate_trigger() でノート開始、LFOリセット、EGトリガー
-   - gate_off() でノート終了、EGリリース
-   - update() で LFO更新、ポルタメント処理、EG更新を実行
-   - serialize() で SPI送信用データを生成
-
-3. **EG (EnvelopeGenerator)** - ADSR エンベロープジェネレータ
-   - SoundUnit が vcf_eg/vca_eg として内部保持
-   - gate_trigger() / gate_off() で状態遷移（Ready/Attack/Decay/Sustain/Release）
-   - get_value() で現在のエンベロープ値を取得
-   - 値域は 0.0-1.0 (float)
-
-4. **VCO** - オシレータ
-   - freq（周波数）で管理
-   - VCOWaveType Enum で波形を管理 (Saw, Sin, Tri, Square)
-   - gain（VCOレベル）、mix（VCO1/2ミックス）、duty（PWM）を管理
-   - getter/setterでパラメータアクセス
-
-5. **VCF** - フィルタ
-   - float 精度で cutoff_freq, resonance, eg_int 管理
-   - filtertype で LPF/HPF 切り替え
-   - EG は SoundUnit で管理（VCF自身は持たない）
-
-6. **VCA** - アンプ
-   - float 精度で gain 管理
-   - pan でステレオパンニング制御 (-1.0=L, 0.0=C, 1.0=R)
-   - EG は SoundUnit で管理（VCA自身は持たない）
-
-7. **LFO** - LFO
-   - 変調用
-   - LFOWave Enum で波形管理 (SawUp, SawDown, Sin, Tri, Square, Random)
-   - LFOTarget Enum でターゲット管理 (VCO1Pitch, VCO2Duty, VCOMix, VCFCutoff, VCAGain, VCAPan)
-   - update() で波形生成、get_value() で現在値取得
-   - reset() で gate_trigger 時に位相リセット
-
-8. **ADCManager** - ADC値読み込み
-   - SPI0経由で MCP3008 × 2 から VR値を読み込み
-   - VCO, VCF, VCA, LFO パラメータに直接書き込み
-   - read_vco(), read_vcf(), read_vca(), read_lfo() メソッド提供
-
-9. **LEDManager** - LED制御
-   - 74HC595 × 5 を制御してユニット状態・モード選択を表示
-   - SoundModuleManager から呼ばれて LED を更新
-   - update_unit_leds(), update_mode_leds(), update_all() メソッド提供
-
-10. **TriStateToggle** - 3ステートトグルスイッチ
-    - 右/左ボタンで状態を循環的に切り替え
-    - VCO1/VCO2波形、VCFタイプ、LFO波形/ターゲット選択に使用
-
-11. **VoiceAllocator** - Voice allocation
-    - MIDI Note On/Off イベントを SoundUnit に割り当て
-    - Round-robin 割り当て、Voice stealing、Sustain Pedal 対応
-    - handle_note_on/off(), apply_to_units() メソッド提供
-
-12. **ParameterStreamer** - パラメータストリーム生成
-    - SoundModuleManager の完全なパラメータセットをシリアライズ
-    - 各 SoundUnit の serialize() メソッドを呼び出し
-    - 34ワード（68バイト）のストリームを構築
-    - SPI1経由で Sound モジュール 8台にブロードキャスト
-
-13. **SPIDevice** - SPI通信基底クラス
-    - spi_inst_t と CS ピンを管理
-    - write_bytes(), read_bytes(), write_read_bytes() 提供
-
-14. **SPIMCP3008** - ADC (MCP3008) 制御
-    - SPIDevice を継承
-    - read(channel) で 10-bit ADC値を取得
-
-15. **SPI74HC595** - シフトレジスタ (74HC595) 制御
-    - SPIDevice を継承
-    - put_8bit(value) で 8-bit 値を一括書き込み
-    - put(pin, value) で個別ビット制御
 
 
 ### メインループの流れ
@@ -506,10 +434,10 @@ while (true) {
 while (true) {
     1. sound_mgr.update()
        ├─ if available: event_queue.get()
-       ├─ TriStateToggle.update() × 5  (SW 読み込み)
-       ├─ ADCManager.read_*() × 4      (VR 読み込み)
+       ├─ Selector.update() × 5  (SW 読み込み)
+       ├─ ADCDriver.read_*() × 4      (VR 読み込み)
        ├─ SoundUnit.update() × 16      (LFO/Portamento/EG)
-       └─ LEDManager.update_all()      (LED 更新)
+       └─ LEDDriver.update_all()      (LED 更新)
 
     2. streamer.send_stream()
        ├─ sound_mgr.serialize()
