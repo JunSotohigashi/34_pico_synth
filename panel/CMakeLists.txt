@@ -12,6 +12,15 @@ endif()
 # Panel executable
 add_executable(pico-synth-panel
     src/main.cpp
+    src/vco.cpp
+    src/vcf.cpp
+    src/vca.cpp
+    src/eg.cpp
+    src/lfo.cpp
+    src/sound_unit.cpp
+    src/voice_allocator.cpp
+    src/panel_manager.cpp
+    src/sound_module_manager.cpp
 )
 
 # Include directories
