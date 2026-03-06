@@ -12,6 +12,7 @@ private:
     uint8_t unit_to_note_[16];
     uint8_t unit_velocity_[16];
     SoundUnitState unit_state_[16];
+    SoundUnitState unit_state_prev_[16];  // Track previous state for transitions
     uint32_t unit_history_[16];
     uint8_t last_unit_used_;
     uint32_t history_counter_;

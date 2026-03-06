@@ -41,6 +41,7 @@ VoiceAllocator::VoiceAllocator() : last_unit_used_(255), history_counter_(1), su
         unit_to_note_[i] = 0;
         unit_velocity_[i] = 0;
         unit_state_[i] = SoundUnitState::IDLE;
+        unit_state_prev_[i] = SoundUnitState::IDLE;
         unit_history_[i] = 0;
     }
 }
@@ -113,13 +114,21 @@ void VoiceAllocator::update(SoundUnit *units[16])
 {
     for (uint8_t u = 0; u < 16; u++)
     {
-        if (unit_state_[u] == SoundUnitState::ACTIVE)
+        // Only send gate commands on state transitions
+        const SoundUnitState current = unit_state_[u];
+        const SoundUnitState previous = unit_state_prev_[u];
+
+        if (current != previous)
         {
-            units[u]->gate_on(unit_to_note_[u], unit_velocity_[u]);
-        }
-        else if (unit_state_[u] == SoundUnitState::IDLE)
-        {
-            units[u]->gate_off();
+            if (current == SoundUnitState::ACTIVE)
+            {
+                units[u]->gate_on(unit_to_note_[u], unit_velocity_[u]);
+            }
+            else if (current == SoundUnitState::IDLE)
+            {
+                units[u]->gate_off();
+            }
+            unit_state_prev_[u] = current;
         }
     }
 }
