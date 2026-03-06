@@ -26,7 +26,7 @@ void EG::gate_on()
 void EG::gate_off()
 {
     state_ = EGState::RELEASE;
-    value_ = sustain_;  // Start release phase from current sustain level
+    // Keep current value and decay from there.
 }
 
 void EG::update()

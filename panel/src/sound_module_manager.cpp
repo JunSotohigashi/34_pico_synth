@@ -109,8 +109,15 @@ void SoundModuleManager::update()
         float vcf_d = panel_manager_->get_vcf_decay() / 1023.0f;
         float vcf_s = panel_manager_->get_vcf_sustain() / 1023.0f;
         float vcf_r = 0.0f;
-        float vcf_int = panel_manager_->get_vcf_eg_int() / 1023.0f;
+        // Map VCF EG intensity from [0, 1023] to [-1.0, +1.0]
+        float vcf_int = (panel_manager_->get_vcf_eg_int() / 1023.0f - 0.5f) * 2.0f;
         sound_units_[i]->get_vcf_eg()->set_adsr(vcf_a, vcf_d, vcf_s, vcf_r, vcf_int);
+
+        // Apply VCF EG modulation to cutoff frequency
+        // EG value is value_ * eg_int_ and is used as octave offset.
+        float base_cutoff = panel_manager_->get_vcf_cutoff();
+        float vcf_eg_value = sound_units_[i]->get_vcf_eg()->get_value();
+        sound_units_[i]->get_vcf()->set_cutoff_freq(base_cutoff * powf(2.0f, vcf_eg_value));
 
         float vca_a = panel_manager_->get_vca_attack() / 1023.0f;
         float vca_d = panel_manager_->get_vca_decay() / 1023.0f;
@@ -152,11 +159,12 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     const bool is_hpf = panel_manager_->get_vcf_type() == VCFFilterType::HPF;
     buf[IDX_VCF_TYPE] = is_hpf ? 1 : 0;
 
-    const float cutoff_norm = panel_manager_->get_vcf_cutoff() / 1023.0f;
+    // Use per-voice VCF state so EG modulation applied in update() is reflected here.
+    const float cutoff_norm = clampf(sound_units_[unit_id]->get_vcf()->get_cutoff_freq() / 1023.0f, 0.0f, 1.0f);
     float cutoff_hz = kMinCutoffHz * std::pow(kMaxCutoffHz / kMinCutoffHz, cutoff_norm);
     cutoff_hz = clampf(cutoff_hz, kMinCutoffHz, kMaxCutoffHz);
 
-    const float q_norm = panel_manager_->get_vcf_resonance() / 1023.0f;
+    const float q_norm = clampf(sound_units_[unit_id]->get_vcf()->get_resonance(), 0.0f, 1.0f);
     const float q = kMinQ + q_norm * (kMaxQ - kMinQ);
 
     float b0 = 0.0f;
@@ -173,7 +181,7 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     encode_fixed(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
 
     // Apply VCA EG to gain (with velocity sensitivity)
-    const float eg_gain = sound_units_[unit_id]->get_vca()->get_gain();
+    const float eg_gain = clampf(sound_units_[unit_id]->get_vca()->get_gain(), 0.0f, 1.0f);
     const uint16_t gain_value = active ? static_cast<uint16_t>(eg_gain * 65535.0f) : 0;
     buf[IDX_VCA_GAIN_L] = gain_value;
     buf[IDX_VCA_GAIN_R] = gain_value;

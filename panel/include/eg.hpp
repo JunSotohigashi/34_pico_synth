@@ -19,6 +19,7 @@ public:
     void gate_on();
     void gate_off();
     void update();
+    // Envelope output after EG intensity scaling.
     float get_value() const { return value_ * eg_int_; }
     EGState get_state() const { return state_; }
 };
