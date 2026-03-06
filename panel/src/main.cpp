@@ -35,13 +35,13 @@ struct MidiEvent
 };
 
 static SoundModuleManager *g_sound_mgr = nullptr;
-constexpr uint64_t TIMER_PERIOD_US = 20000; // 20ms timer interval
+constexpr uint64_t TIMER_PERIOD_US = 5000;
 
 // MIDI event queue (Core 1 -> Core 0)
 static queue_t midi_event_queue;
 
-// UART RX ring buffer (256 bytes)
-static char uart_rx_buffer[256];
+// UART RX ring buffer
+static char uart_rx_buffer[1024];
 static volatile uint16_t uart_rx_write_idx = 0;
 static uint16_t uart_rx_read_idx = 0;
 
@@ -247,7 +247,7 @@ int main()
     SoundModuleManager sound_mgr(&voice_allocator, &panel_manager);
 
     // Initialize MIDI event queue
-    queue_init(&midi_event_queue, sizeof(MidiEvent), 128);
+    queue_init(&midi_event_queue, sizeof(MidiEvent), 1024);
 
     g_sound_mgr = &sound_mgr;
     multicore_launch_core1(core1_entry);
