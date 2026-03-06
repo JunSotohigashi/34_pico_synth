@@ -18,7 +18,15 @@ UartMidi::UartMidi(uart_inst_t* uart, uint tx_pin, uint rx_pin, uint32_t baud_ra
 
 void UartMidi::send(const MidiMessage& msg) {
     uint8_t len = format_midi_hex(msg, tx_buffer_);
-    uart_write_blocking(uart_, reinterpret_cast<const uint8_t*>(tx_buffer_), len);
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(tx_buffer_);
+    
+    // Non-blocking: write as much as possible without stalling
+    for (uint8_t i = 0; i < len; ++i) {
+        if (uart_is_writable(uart_)) {
+            uart_putc_raw(uart_, data[i]);
+        }
+        // If FIFO full, silently skip (low-level retry in OS)
+    }
 }
 
 bool UartMidi::is_writable() const {

@@ -93,8 +93,8 @@ int main() {
     scanner.init();
     g_scanner = &scanner;
     
-    // Initialize inter-core queue
-    queue_init(&g_midi_queue, sizeof(MidiMessage), 32);
+    // Initialize inter-core queue (larger size to prevent event loss)
+    queue_init(&g_midi_queue, sizeof(MidiMessage), 256);
     
     // Launch Core 1 for keyboard scanning
     multicore_launch_core1(core1_main);

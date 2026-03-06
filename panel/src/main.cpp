@@ -18,17 +18,38 @@
 #include "panel_manager.hpp"
 #include "sound_module_manager.hpp"
 
-volatile bool g_send_flag = false; // Core 1 → Core 0: send request
+volatile bool g_update_flag = false; // Core 1 -> Core 0: panel update request
+volatile bool g_send_flag = false;   // Core 1 -> Core 0: stream send request
 static SoundModuleManager *g_sound_mgr = nullptr;
 constexpr uint64_t TIMER_PERIOD_US = 20000; // 20ms timer interval
 
+// UART RX ring buffer (256 bytes)
+static char uart_rx_buffer[256];
+static volatile uint16_t uart_rx_write_idx = 0;
+static uint16_t uart_rx_read_idx = 0;
+
+// UART RX interrupt handler
+void uart0_irq_handler()
+{
+    while (uart_is_readable(uart0))
+    {
+        const char ch = static_cast<char>(uart_getc(uart0));
+        const uint16_t next_write = (uart_rx_write_idx + 1) % sizeof(uart_rx_buffer);
+        
+        // Only store if not overflowing
+        if (next_write != uart_rx_read_idx)
+        {
+            uart_rx_buffer[uart_rx_write_idx] = ch;
+            uart_rx_write_idx = next_write;
+        }
+    }
+}
+
 int64_t timer_callback(alarm_id_t id, void *user_data)
 {
-    if (g_sound_mgr != nullptr)
-    {
-        g_sound_mgr->update();
-        g_send_flag = true;
-    }
+    (void)id;
+    (void)user_data;
+    g_update_flag = true;
     return TIMER_PERIOD_US;
 }
 
@@ -45,31 +66,46 @@ void core1_entry()
     }
 }
 
-static char uart_buf[256] = {0};
-static uint8_t uart_buf_index = 0;
-
 void handle_uart_midi(SoundModuleManager *sound_mgr)
 {
-    while (uart_is_readable(uart0))
+    static char uart_line[16] = {0};
+    static uint8_t uart_line_index = 0;
+    
+    // Process all available characters from ring buffer
+    while (uart_rx_read_idx != uart_rx_write_idx)
     {
-        uart_buf[uart_buf_index] = uart_getc(uart0);
+        const char ch = uart_rx_buffer[uart_rx_read_idx];
+        uart_rx_read_idx = (uart_rx_read_idx + 1) % sizeof(uart_rx_buffer);
 
-        if (uart_buf[uart_buf_index] != '\n')
+        if (ch == '\r')
         {
-            uart_buf_index++;
             continue;
         }
 
-        char uart_msg[12];
-        for (uint16_t i = 0; i <= 8; i++)
+        if (ch != '\n')
         {
-            uart_msg[i] = uart_buf[(uart_buf_index + i - 8) & 0xFF];
+            if (uart_line_index < sizeof(uart_line) - 1)
+            {
+                uart_line[uart_line_index++] = ch;
+            }
+            else
+            {
+                // Drop malformed long lines and resync at next newline.
+                uart_line_index = 0;
+            }
+            continue;
         }
-        uart_msg[10] = '\0';
 
-        uint8_t msg[3];
-        sscanf(uart_msg, "%hhx %hhx %hhx", &msg[0], &msg[1], &msg[2]);
-        uint8_t status = msg[0], data1 = msg[1], data2 = msg[2];
+        uart_line[uart_line_index] = '\0';
+        uart_line_index = 0;
+
+        uint8_t status = 0;
+        uint8_t data1 = 0;
+        uint8_t data2 = 0;
+        if (sscanf(uart_line, "%hhx %hhx %hhx", &status, &data1, &data2) != 3)
+        {
+            continue;
+        }
 
         VoiceAllocator *va = sound_mgr->get_voice_allocator();
 
@@ -92,8 +128,6 @@ void handle_uart_midi(SoundModuleManager *sound_mgr)
                 va->handle_sustain_off();
             }
         }
-
-        uart_buf_index++;
     }
 }
 
@@ -116,6 +150,11 @@ int main()
     uart_init(uart0, UART_BAUDRATE);
     gpio_set_function(PIN_UART_TX, GPIO_FUNC_UART);
     gpio_set_function(PIN_UART_RX, GPIO_FUNC_UART);
+    
+    // Enable UART RX interrupt
+    irq_set_exclusive_handler(UART0_IRQ, uart0_irq_handler);
+    uart_set_irq_enables(uart0, true, false);  // RX interrupt only
+    irq_set_enabled(UART0_IRQ, true);
 
     spi_init(spi0, SPI_BAUDRATE_PANEL);
     gpio_set_function(PIN_MISO_PANEL, GPIO_FUNC_SPI);
@@ -176,6 +215,15 @@ int main()
     while (true)
     {
         handle_uart_midi(&sound_mgr);
+
+        if (g_update_flag)
+        {
+            // Keep heavy SPI/ADC work out of alarm IRQ context.
+            g_update_flag = false;
+            sound_mgr.update();
+            g_send_flag = true;
+        }
+
         if (g_send_flag)
         {
             // Send parameters for each unit sequentially
