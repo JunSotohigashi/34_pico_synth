@@ -98,7 +98,7 @@ void SoundModuleManager::update()
 
         sound_units_[i]->get_vco()->set_wavetype1(panel_manager_->get_vco1_wavetype());
         sound_units_[i]->get_vco()->set_wavetype2(panel_manager_->get_vco2_wavetype());
-        sound_units_[i]->get_vco()->set_vco1_duty(panel_manager_->get_vco1_duty() / 1023.0f);
+        sound_units_[i]->get_vco()->set_vco1_duty(panel_manager_->get_vco1_duty() / 1023.0f * 0.5f);
         sound_units_[i]->get_vco()->set_vco2_offset(panel_manager_->get_vco2_offset() / 1023.0f);
         sound_units_[i]->get_vco()->set_mix(panel_manager_->get_vco_mix() / 1023.0f);
 
