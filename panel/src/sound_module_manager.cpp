@@ -1,5 +1,76 @@
 #include "sound_module_manager.hpp"
 
+#include <cmath>
+#include <cstring>
+
+namespace
+{
+constexpr float kSampleRate = 40000.0f;
+constexpr float kMinCutoffHz = 20.0f;
+constexpr float kMaxCutoffHz = 18000.0f;
+constexpr float kMinQ = 0.70710678f;
+constexpr float kMaxQ = 4.0f;
+constexpr float kTwoPi = 6.28318530718f;
+
+inline float clampf(float v, float lo, float hi)
+{
+    if (v < lo)
+        return lo;
+    if (v > hi)
+        return hi;
+    return v;
+}
+
+inline uint16_t phase_delta_from_hz(float hz)
+{
+    const float value = hz * 65536.0f / kSampleRate;
+    return static_cast<uint16_t>(clampf(value, 0.0f, 65535.0f));
+}
+
+inline void encode_float(float value, uint16_t &hi, uint16_t &lo)
+{
+    uint32_t raw = 0;
+    static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float size");
+    std::memcpy(&raw, &value, sizeof(raw));
+    hi = static_cast<uint16_t>(raw >> 16);
+    lo = static_cast<uint16_t>(raw & 0xFFFF);
+}
+
+void calc_biquad(bool is_hpf, float cutoff_hz, float q, float &b0, float &b1, float &b2, float &a1, float &a2)
+{
+    const float omega = kTwoPi * cutoff_hz / kSampleRate;
+    const float sn = std::sinf(omega);
+    const float cs = std::cosf(omega);
+    const float alpha = sn / (2.0f * q);
+
+    float tb0 = 0.0f;
+    float tb1 = 0.0f;
+    float tb2 = 0.0f;
+    const float a0 = 1.0f + alpha;
+    const float ta1 = -2.0f * cs;
+    const float ta2 = 1.0f - alpha;
+
+    if (is_hpf)
+    {
+        tb0 = (1.0f + cs) * 0.5f;
+        tb1 = -(1.0f + cs);
+        tb2 = (1.0f + cs) * 0.5f;
+    }
+    else
+    {
+        tb0 = (1.0f - cs) * 0.5f;
+        tb1 = 1.0f - cs;
+        tb2 = (1.0f - cs) * 0.5f;
+    }
+
+    b0 = tb0 / a0;
+    b1 = tb1 / a0;
+    b2 = tb2 / a0;
+    a1 = ta1 / a0;
+    a2 = ta2 / a0;
+}
+} // namespace
+
 SoundModuleManager::SoundModuleManager(VoiceAllocator *va, PanelManager *pm)
     : voice_allocator_(va), panel_manager_(pm)
 {
@@ -59,53 +130,49 @@ void SoundModuleManager::update()
 
 void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
 {
-    // Send 12 params for a single unit
-    // Format per unit:
-    // [0]: Destination Unit (0-15)
-    // [1]: VCO Freq (0-65535 Hz)
-    // [2]: VCO1 WaveType (0-3)
-    // [3]: VCO2 WaveType (0-3)
-    // [4]: VCO1 Duty (0-65535)
-    // [5]: VCO2 Offset (-32768~32767 Hz)
-    // [6]: VCO Mix (0-65535)
-    // [7]: VCF Type (0-1)
-    // [8]: VCF Cutoff (0-65535 Hz)
-    // [9]: VCF Resonance (0-65535)
-    // [10]: VCA Gain Left (0-65535 = 0.0-1.0)
-    // [11]: VCA Gain Right (0-65535 = 0.0-1.0)
+    buf[IDX_UNIT_ID] = unit_id;
 
-    // [0] Destination Unit
-    buf[0] = unit_id;
+    const bool active = (voice_allocator_->get_unit_state(unit_id) != SoundUnitState::IDLE);
+    const uint8_t note = voice_allocator_->get_unit_note(unit_id);
+    float base_freq = 440.0f * std::pow(2.0f, (static_cast<int>(note) - 69) / 12.0f);
+    if (!active)
+    {
+        base_freq = 0.0f;
+    }
 
-    // [1] VCO Frequency from voice note
-    uint8_t note = voice_allocator_->get_unit_note(unit_id);
-    // Simplified: use note directly; Sound module will convert to frequency
-    buf[1] = note & 0xFFFF;
+    const float tune_pos = (static_cast<float>(panel_manager_->get_vco2_offset()) - 512.0f) / 512.0f;
+    const float vco2_ratio = std::pow(2.0f, std::pow(tune_pos, 3.0f));
 
-    // [2-3] VCO WaveTypes
-    buf[2] = static_cast<uint16_t>(panel_manager_->get_vco1_wavetype());
-    buf[3] = static_cast<uint16_t>(panel_manager_->get_vco2_wavetype());
+    buf[IDX_VCO1_PHASE_DELTA] = phase_delta_from_hz(base_freq);
+    buf[IDX_VCO2_PHASE_DELTA] = phase_delta_from_hz(base_freq * vco2_ratio);
+    buf[IDX_VCO1_WAVE] = static_cast<uint16_t>(panel_manager_->get_vco1_wavetype());
+    buf[IDX_VCO2_WAVE] = static_cast<uint16_t>(panel_manager_->get_vco2_wavetype());
+    buf[IDX_VCO1_DUTY] = static_cast<uint16_t>(panel_manager_->get_vco1_duty() << 6);
+    buf[IDX_VCO_MIX] = static_cast<uint16_t>(panel_manager_->get_vco_mix() << 6);
 
-    // [4] VCO1 Duty (0-65535)
-    buf[4] = panel_manager_->get_vco1_duty();
+    const bool is_hpf = panel_manager_->get_vcf_type() == VCFFilterType::HPF;
+    buf[IDX_VCF_TYPE] = is_hpf ? 1 : 0;
 
-    // [5] VCO2 Offset (-32768~32767)
-    int16_t vco2_offset = static_cast<int16_t>(panel_manager_->get_vco2_offset());
-    buf[5] = static_cast<uint16_t>(vco2_offset);
+    const float cutoff_norm = panel_manager_->get_vcf_cutoff() / 1023.0f;
+    float cutoff_hz = kMinCutoffHz * std::pow(kMaxCutoffHz / kMinCutoffHz, cutoff_norm);
+    cutoff_hz = clampf(cutoff_hz, kMinCutoffHz, kMaxCutoffHz);
 
-    // [6] VCO Mix (0-65535)
-    buf[6] = panel_manager_->get_vco_mix();
+    const float q_norm = panel_manager_->get_vcf_resonance() / 1023.0f;
+    const float q = kMinQ + q_norm * (kMaxQ - kMinQ);
 
-    // [7] VCF Type (0=LPF, 1=HPF)
-    buf[7] = 0; // TODO: get from panel_manager if VCF type selector added
+    float b0 = 0.0f;
+    float b1 = 0.0f;
+    float b2 = 0.0f;
+    float a1 = 0.0f;
+    float a2 = 0.0f;
+    calc_biquad(is_hpf, cutoff_hz, q, b0, b1, b2, a1, a2);
 
-    // [8] VCF Cutoff (0-65535 Hz)
-    buf[8] = panel_manager_->get_vcf_cutoff();
+    encode_float(b0, buf[IDX_VCF_B0_HI], buf[IDX_VCF_B0_LO]);
+    encode_float(b1, buf[IDX_VCF_B1_HI], buf[IDX_VCF_B1_LO]);
+    encode_float(b2, buf[IDX_VCF_B2_HI], buf[IDX_VCF_B2_LO]);
+    encode_float(a1, buf[IDX_VCF_A1_HI], buf[IDX_VCF_A1_LO]);
+    encode_float(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
 
-    // [9] VCF Resonance (0-65535)
-    buf[9] = panel_manager_->get_vcf_resonance();
-
-    // [10-11] VCA Gains (0-65535 = 0.0-1.0 for each channel)
-    buf[10] = 65535; // Left gain (full volume)
-    buf[11] = 65535; // Right gain (full volume)
+    buf[IDX_VCA_GAIN_L] = active ? 65535 : 0;
+    buf[IDX_VCA_GAIN_R] = active ? 65535 : 0;
 }

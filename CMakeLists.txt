@@ -37,73 +37,12 @@ endif()
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-option(BUILD_BOOTSTRAP_PICO_SYNTH "Build bootstrap pico-synth target" ON)
-
-if(BUILD_BOOTSTRAP_PICO_SYNTH)
-    add_executable(pico-synth pico-synth.cpp)
-    pico_set_program_name(pico-synth "pico-synth")
-    pico_set_program_version(pico-synth "0.1")
-    pico_generate_pio_header(pico-synth ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
-    pico_enable_stdio_uart(pico-synth 0)
-    pico_enable_stdio_usb(pico-synth 1)
-    target_link_libraries(pico-synth
-        pico_stdlib
-        hardware_spi
-        hardware_dma
-        hardware_pio
-        hardware_interp
-        hardware_timer
-        hardware_watchdog
-        hardware_clocks)
-    target_include_directories(pico-synth PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR})
-    pico_add_extra_outputs(pico-synth)
-endif()
-
-set(OLD_DIR ${CMAKE_CURRENT_LIST_DIR}/old)
-set(PANEL_DIR ${OLD_DIR}/pico-synth-panel)
-set(SOUND_DIR ${OLD_DIR}/pico-synth-sound)
-
 # Keyboard module (new implementation)
 add_subdirectory(keyboard)
 
 # Panel module (new implementation)
 add_subdirectory(panel)
 
-foreach(unit RANGE 0 7)
-    math(EXPR unit_1 "${unit} * 2 + 1")
-    math(EXPR unit_2 "${unit} * 2 + 2")
-
-    add_executable(pico-synth-sound${unit}
-        ${SOUND_DIR}/pico-synth-sound.cpp
-        ${SOUND_DIR}/voice.cpp
-        ${SOUND_DIR}/oscillator.cpp
-        ${SOUND_DIR}/envelope_generator.cpp
-        ${SOUND_DIR}/filter.cpp)
-
-    target_compile_definitions(pico-synth-sound${unit} PRIVATE
-        UNIT_1=${unit_1}
-        UNIT_2=${unit_2})
-
-    pico_set_program_name(pico-synth-sound${unit} "pico-synth-sound${unit}")
-    pico_set_program_version(pico-synth-sound${unit} "0.1")
-    pico_enable_stdio_uart(pico-synth-sound${unit} 0)
-    pico_enable_stdio_usb(pico-synth-sound${unit} 1)
-
-    target_link_libraries(pico-synth-sound${unit}
-        pico_stdlib
-        pico_rand
-        pico_multicore
-        hardware_clocks
-        hardware_divider
-        hardware_interp
-        hardware_pwm
-        hardware_spi)
-
-    target_include_directories(pico-synth-sound${unit} PRIVATE
-        ${SOUND_DIR}
-        ${CMAKE_CURRENT_LIST_DIR})
-
-    pico_add_extra_outputs(pico-synth-sound${unit})
-endforeach()
+# Sound module (new implementation)
+add_subdirectory(sound)
 

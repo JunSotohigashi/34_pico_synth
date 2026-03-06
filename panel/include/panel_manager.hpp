@@ -59,6 +59,7 @@ public:
     uint16_t get_vco1_duty() const { return vco1_duty_; }
     uint16_t get_vco2_offset() const { return vco2_offset_; }
     uint16_t get_vco_mix() const { return vco_mix_; }
+    VCFFilterType get_vcf_type() const { return static_cast<VCFFilterType>(sel_vcf_->get_state()); }
     uint16_t get_vcf_cutoff() const { return vcf_cutoff_; }
     uint16_t get_vcf_resonance() const { return vcf_resonance_; }
     uint16_t get_vcf_eg_int() const { return vcf_eg_int_; }
