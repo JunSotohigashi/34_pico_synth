@@ -14,7 +14,7 @@ constexpr uint8_t PIN_CS_SOUND = 17;
 
 constexpr uint32_t SPI_BAUDRATE_SOUND = 1000 * 1000;
 constexpr uint32_t AUDIO_SAMPLE_RATE = 40000;
-constexpr int32_t AUDIO_TIMER_PERIOD_US = -25;
+constexpr int32_t AUDIO_TIMER_PERIOD_US = -25;  // 40kHz (Fixed_16_16)
 
 constexpr uint8_t STREAM_LENGTH = 20;
 

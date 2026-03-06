@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pico/stdlib.h"
+#include "fixed_point.hpp"
 
 enum class WaveType : uint8_t
 {
@@ -19,7 +20,7 @@ public:
     void set_phase16_delta(uint16_t phase16_delta);
     void set_duty(uint16_t duty);
 
-    float get_value();
+    Fixed_16_16 get_value();
 
 private:
     WaveType wave_type_now_;

@@ -27,11 +27,10 @@ inline uint16_t phase_delta_from_hz(float hz)
     return static_cast<uint16_t>(clampf(value, 0.0f, 65535.0f));
 }
 
-inline void encode_float(float value, uint16_t &hi, uint16_t &lo)
+inline void encode_fixed(float value, uint16_t &hi, uint16_t &lo)
 {
-    uint32_t raw = 0;
-    static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float size");
-    std::memcpy(&raw, &value, sizeof(raw));
+    const int32_t fixed_raw = static_cast<int32_t>(value * 65536.0f);
+    const uint32_t raw = static_cast<uint32_t>(fixed_raw);
     hi = static_cast<uint16_t>(raw >> 16);
     lo = static_cast<uint16_t>(raw & 0xFFFF);
 }
@@ -167,11 +166,11 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     float a2 = 0.0f;
     calc_biquad(is_hpf, cutoff_hz, q, b0, b1, b2, a1, a2);
 
-    encode_float(b0, buf[IDX_VCF_B0_HI], buf[IDX_VCF_B0_LO]);
-    encode_float(b1, buf[IDX_VCF_B1_HI], buf[IDX_VCF_B1_LO]);
-    encode_float(b2, buf[IDX_VCF_B2_HI], buf[IDX_VCF_B2_LO]);
-    encode_float(a1, buf[IDX_VCF_A1_HI], buf[IDX_VCF_A1_LO]);
-    encode_float(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
+    encode_fixed(b0, buf[IDX_VCF_B0_HI], buf[IDX_VCF_B0_LO]);
+    encode_fixed(b1, buf[IDX_VCF_B1_HI], buf[IDX_VCF_B1_LO]);
+    encode_fixed(b2, buf[IDX_VCF_B2_HI], buf[IDX_VCF_B2_LO]);
+    encode_fixed(a1, buf[IDX_VCF_A1_HI], buf[IDX_VCF_A1_LO]);
+    encode_fixed(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
 
     buf[IDX_VCA_GAIN_L] = active ? 65535 : 0;
     buf[IDX_VCA_GAIN_R] = active ? 65535 : 0;

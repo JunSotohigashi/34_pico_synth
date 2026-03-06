@@ -2,11 +2,11 @@
 
 Filter::Filter()
     : filter_type_(FilterType::LPF),
-      coeff_{1.0f, 0.0f, 0.0f, 0.0f, 0.0f},
-      x1_(0.0f),
-      x2_(0.0f),
-      y1_(0.0f),
-      y2_(0.0f)
+      coeff_{Fixed_16_16::one, Fixed_16_16::zero, Fixed_16_16::zero, Fixed_16_16::zero, Fixed_16_16::zero},
+      x1_(Fixed_16_16::zero),
+      x2_(Fixed_16_16::zero),
+      y1_(Fixed_16_16::zero),
+      y2_(Fixed_16_16::zero)
 {
 }
 
@@ -15,7 +15,7 @@ void Filter::set_filter_type(bool is_hpf)
     filter_type_ = is_hpf ? FilterType::HPF : FilterType::LPF;
 }
 
-void Filter::set_coefficients(float b0, float b1, float b2, float a1, float a2)
+void Filter::set_coefficients(Fixed_16_16 b0, Fixed_16_16 b1, Fixed_16_16 b2, Fixed_16_16 a1, Fixed_16_16 a2)
 {
     coeff_[0] = b0;
     coeff_[1] = b1;
@@ -24,7 +24,7 @@ void Filter::set_coefficients(float b0, float b1, float b2, float a1, float a2)
     coeff_[4] = a2;
 }
 
-void Filter::set_coefficient_by_index(uint8_t index, float value)
+void Filter::set_coefficient_by_index(uint8_t index, Fixed_16_16 value)
 {
     if (index < coeff_.size())
     {
@@ -32,9 +32,9 @@ void Filter::set_coefficient_by_index(uint8_t index, float value)
     }
 }
 
-float Filter::process(float x)
+Fixed_16_16 Filter::process(Fixed_16_16 x)
 {
-    const float y = coeff_[0] * x + coeff_[1] * x1_ + coeff_[2] * x2_ - coeff_[3] * y1_ - coeff_[4] * y2_;
+    Fixed_16_16 y = coeff_[0] * x + coeff_[1] * x1_ + coeff_[2] * x2_ - coeff_[3] * y1_ - coeff_[4] * y2_;
 
     x2_ = x1_;
     x1_ = x;

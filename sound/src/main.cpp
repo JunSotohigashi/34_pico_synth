@@ -12,38 +12,56 @@
 
 #include "config.hpp"
 #include "voice.hpp"
+#include "fixed_point.hpp"
 
 namespace
 {
-    queue_t sound_buffer;
+    queue_t pwm_output_queue;
+
     volatile uint16_t rx_packet[STREAM_LENGTH];
     volatile bool packet_ready = false;
     volatile uint8_t rx_index = 0;
 
     uint16_t stream_packet[STREAM_LENGTH];
 
-    float decode_float_from_words(uint16_t high, uint16_t low)
+    Fixed_16_16 decode_fixed_from_words(uint16_t high, uint16_t low)
     {
         const uint32_t raw = (static_cast<uint32_t>(high) << 16) | low;
-        float value = 0.0f;
-        std::memcpy(&value, &raw, sizeof(value));
-        return value;
+        int32_t signed_raw;
+        std::memcpy(&signed_raw, &raw, sizeof(signed_raw));
+        return Fixed_16_16::from_raw_value(signed_raw);
     }
 
-    uint32_t pack_pwm_stereo(float left, float right)
+    uint32_t pack_pwm_stereo(Fixed_16_16 left, Fixed_16_16 right)
     {
-        auto to_u16 = [](float v) -> uint16_t
+        auto to_u16 = [](Fixed_16_16 v) -> uint16_t
         {
-            if (v > 1.0f)
+            int32_t raw = v.raw_value;
+            if (raw > 65536)
             {
-                v = 1.0f;
+                raw = 65536;
             }
-            if (v < -1.0f)
+            if (raw < -65536)
             {
-                v = -1.0f;
+                raw = -65536;
             }
-            const float shifted = (v + 1.0f) * 0.5f;
-            return static_cast<uint16_t>(shifted * 65535.0f);
+
+            int32_t shifted = raw + 65536; // 0..131072
+            if (shifted < 0)
+            {
+                shifted = 0;
+            }
+            if (shifted > 131072)
+            {
+                shifted = 131072;
+            }
+
+            uint32_t u = static_cast<uint32_t>(shifted >> 1); // 0..65536
+            if (u > 65535u)
+            {
+                u = 65535u;
+            }
+            return static_cast<uint16_t>(u);
         };
 
         const uint16_t l = to_u16(left);
@@ -61,11 +79,11 @@ namespace
         voice.set_vco_mix(packet[IDX_VCO_MIX]);
 
         voice.set_vcf_type(packet[IDX_VCF_TYPE] != 0);
-        voice.set_vcf_coefficient_by_index(0, decode_float_from_words(packet[IDX_VCF_B0_HI], packet[IDX_VCF_B0_LO]));
-        voice.set_vcf_coefficient_by_index(1, decode_float_from_words(packet[IDX_VCF_B1_HI], packet[IDX_VCF_B1_LO]));
-        voice.set_vcf_coefficient_by_index(2, decode_float_from_words(packet[IDX_VCF_B2_HI], packet[IDX_VCF_B2_LO]));
-        voice.set_vcf_coefficient_by_index(3, decode_float_from_words(packet[IDX_VCF_A1_HI], packet[IDX_VCF_A1_LO]));
-        voice.set_vcf_coefficient_by_index(4, decode_float_from_words(packet[IDX_VCF_A2_HI], packet[IDX_VCF_A2_LO]));
+        voice.set_vcf_coefficient_by_index(0, decode_fixed_from_words(packet[IDX_VCF_B0_HI], packet[IDX_VCF_B0_LO]));
+        voice.set_vcf_coefficient_by_index(1, decode_fixed_from_words(packet[IDX_VCF_B1_HI], packet[IDX_VCF_B1_LO]));
+        voice.set_vcf_coefficient_by_index(2, decode_fixed_from_words(packet[IDX_VCF_B2_HI], packet[IDX_VCF_B2_LO]));
+        voice.set_vcf_coefficient_by_index(3, decode_fixed_from_words(packet[IDX_VCF_A1_HI], packet[IDX_VCF_A1_LO]));
+        voice.set_vcf_coefficient_by_index(4, decode_fixed_from_words(packet[IDX_VCF_A2_HI], packet[IDX_VCF_A2_LO]));
 
         voice.set_vca_gain_lr(packet[IDX_VCA_GAIN_L], packet[IDX_VCA_GAIN_R]);
     }
@@ -93,18 +111,18 @@ namespace
     {
         (void)rt;
 
-        if (queue_is_empty(&sound_buffer))
-        {
-            gpio_put(PICO_DEFAULT_LED_PIN, true);
-            return true;
-        }
-
         uint32_t out_level = 0;
-        queue_try_remove(&sound_buffer, &out_level);
-        gpio_put(PICO_DEFAULT_LED_PIN, false);
-
-        pwm_set_gpio_level(PIN_OUT_R, (out_level & 0xFFFFu) >> 5);
-        pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16) >> 5);
+        if (queue_try_remove(&pwm_output_queue, &out_level))
+        {
+            pwm_set_gpio_level(PIN_OUT_R, (out_level & 0xFFFFu) >> 5);
+            pwm_set_gpio_level(PIN_OUT_L, (out_level >> 16) >> 5);
+        }
+        else
+        {
+            // Keep output centered when producer is late.
+            pwm_set_gpio_level(PIN_OUT_R, 1024);
+            pwm_set_gpio_level(PIN_OUT_L, 1024);
+        }
 
         return true;
     }
@@ -113,6 +131,7 @@ namespace
     {
         static repeating_timer_t timer;
         add_repeating_timer_us(AUDIO_TIMER_PERIOD_US, &timer_callback, nullptr, &timer);
+
         while (true)
         {
             tight_loop_contents();
@@ -125,10 +144,13 @@ int main()
     set_sys_clock_khz(200000, true);
     stdio_init_all();
 
+    Voice voice1;
+    Voice voice2;
+
+    queue_init(&pwm_output_queue, sizeof(uint32_t), 256);
+
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-
-    queue_init(&sound_buffer, sizeof(uint32_t), 64);
 
     gpio_set_function(PIN_OUT_L, GPIO_FUNC_PWM);
     gpio_set_function(PIN_OUT_R, GPIO_FUNC_PWM);
@@ -159,9 +181,6 @@ int main()
     irq_set_exclusive_handler(SPI0_IRQ, spi_callback);
     irq_set_enabled(SPI0_IRQ, true);
 
-    Voice voice1;
-    Voice voice2;
-
     multicore_launch_core1(core1_entry);
 
     while (true)
@@ -177,6 +196,7 @@ int main()
             restore_interrupts(save);
 
             const uint8_t unit_id = static_cast<uint8_t>(stream_packet[IDX_UNIT_ID]);
+
             if (unit_id == UNIT_1)
             {
                 apply_packet_to_voice(stream_packet, voice1);
@@ -187,13 +207,15 @@ int main()
             }
         }
 
-        voice1.update();
-        voice2.update();
+        while (!queue_is_full(&pwm_output_queue))
+        {
+            voice1.update();
+            voice2.update();
 
-        const float mixed_l = 0.5f * (voice1.get_value_l() + voice2.get_value_l());
-        const float mixed_r = 0.5f * (voice1.get_value_r() + voice2.get_value_r());
-
-        const uint32_t out_level = pack_pwm_stereo(mixed_l, mixed_r);
-        queue_add_blocking(&sound_buffer, &out_level);
+            const Fixed_16_16 mixed_l = (voice1.get_value_l() + voice2.get_value_l()) * Fixed_16_16::from_raw_value(32768);
+            const Fixed_16_16 mixed_r = (voice1.get_value_r() + voice2.get_value_r()) * Fixed_16_16::from_raw_value(32768);
+            const uint32_t out_level = pack_pwm_stereo(mixed_l, mixed_r);
+            queue_add_blocking(&pwm_output_queue, &out_level);
+        }
     }
 }

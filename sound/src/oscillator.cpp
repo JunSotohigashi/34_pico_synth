@@ -26,7 +26,7 @@ void Oscillator::set_duty(uint16_t duty)
     duty_ = duty;
 }
 
-float Oscillator::get_value()
+Fixed_16_16 Oscillator::get_value()
 {
     phase16_ += phase16_delta_;
     wave_type_now_ = wave_type_next_;
@@ -42,6 +42,6 @@ float Oscillator::get_value()
     case WaveType::Square:
         return get_wave_saw(phase16_, phase16_delta_) - get_wave_saw(static_cast<uint16_t>(phase16_ + duty_), phase16_delta_);
     default:
-        return 0.0f;
+        return Fixed_16_16::zero;
     }
 }
