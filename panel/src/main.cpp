@@ -5,6 +5,7 @@
 #include <hardware/timer.h>
 #include <hardware/sync.h>
 #include <pico/multicore.h>
+#include <pico/util/queue.h>
 #include <cstdio>
 #include <cstring>
 
@@ -18,10 +19,26 @@
 #include "panel_manager.hpp"
 #include "sound_module_manager.hpp"
 
-volatile bool g_update_flag = false; // Core 1 -> Core 0: panel update request
-volatile bool g_send_flag = false;   // Core 1 -> Core 0: stream send request
+enum class MidiEventType : uint8_t
+{
+    NOTE_ON = 0,
+    NOTE_OFF = 1,
+    SUSTAIN_ON = 2,
+    SUSTAIN_OFF = 3
+};
+
+struct MidiEvent
+{
+    MidiEventType type;
+    uint8_t data1;  // note number for NOTE_ON/OFF
+    uint8_t data2;  // velocity for NOTE_ON
+};
+
 static SoundModuleManager *g_sound_mgr = nullptr;
 constexpr uint64_t TIMER_PERIOD_US = 20000; // 20ms timer interval
+
+// MIDI event queue (Core 1 -> Core 0)
+static queue_t midi_event_queue;
 
 // UART RX ring buffer (256 bytes)
 static char uart_rx_buffer[256];
@@ -45,88 +62,109 @@ void uart0_irq_handler()
     }
 }
 
-int64_t timer_callback(alarm_id_t id, void *user_data)
-{
-    (void)id;
-    (void)user_data;
-    g_update_flag = true;
-    return TIMER_PERIOD_US;
-}
-
 void core1_entry()
 {
     while (g_sound_mgr == nullptr)
     {
         tight_loop_contents();
     }
-    add_alarm_in_us(TIMER_PERIOD_US, timer_callback, NULL, false);
+    
+    static char uart_line[16] = {0};
+    static uint8_t uart_line_index = 0;
+    
     while (true)
     {
+        // Process UART MIDI on Core1 and forward events via queue
+        while (uart_rx_read_idx != uart_rx_write_idx)
+        {
+            const char ch = uart_rx_buffer[uart_rx_read_idx];
+            uart_rx_read_idx = (uart_rx_read_idx + 1) % sizeof(uart_rx_buffer);
+
+            if (ch == '\r')
+            {
+                continue;
+            }
+
+            if (ch != '\n')
+            {
+                if (uart_line_index < sizeof(uart_line) - 1)
+                {
+                    uart_line[uart_line_index++] = ch;
+                }
+                else
+                {
+                    uart_line_index = 0;
+                }
+                continue;
+            }
+
+            uart_line[uart_line_index] = '\0';
+            uart_line_index = 0;
+
+            uint8_t status = 0;
+            uint8_t data1 = 0;
+            uint8_t data2 = 0;
+            if (sscanf(uart_line, "%hhx %hhx %hhx", &status, &data1, &data2) != 3)
+            {
+                continue;
+            }
+
+            MidiEvent event;
+            if ((status == 0x80) || (status == 0x90 && data2 == 0))
+            {
+                event.type = MidiEventType::NOTE_OFF;
+                event.data1 = data1;
+                event.data2 = 0;
+                queue_try_add(&midi_event_queue, &event);
+            }
+            else if (status == 0x90 && data2 != 0)
+            {
+                event.type = MidiEventType::NOTE_ON;
+                event.data1 = data1;
+                event.data2 = data2;
+                queue_try_add(&midi_event_queue, &event);
+            }
+            else if (status == 0xB0 && data1 == 0x40)
+            {
+                if (data2 >= 64)
+                {
+                    event.type = MidiEventType::SUSTAIN_ON;
+                }
+                else
+                {
+                    event.type = MidiEventType::SUSTAIN_OFF;
+                }
+                event.data1 = 0;
+                event.data2 = 0;
+                queue_try_add(&midi_event_queue, &event);
+            }
+        }
         tight_loop_contents();
     }
 }
 
-void handle_uart_midi(SoundModuleManager *sound_mgr)
+void process_midi_events(SoundModuleManager *sound_mgr)
 {
-    static char uart_line[16] = {0};
-    static uint8_t uart_line_index = 0;
+    MidiEvent event;
+    VoiceAllocator *va = sound_mgr->get_voice_allocator();
     
-    // Process all available characters from ring buffer
-    while (uart_rx_read_idx != uart_rx_write_idx)
+    // Process all pending MIDI events from queue
+    while (queue_try_remove(&midi_event_queue, &event))
     {
-        const char ch = uart_rx_buffer[uart_rx_read_idx];
-        uart_rx_read_idx = (uart_rx_read_idx + 1) % sizeof(uart_rx_buffer);
-
-        if (ch == '\r')
+        switch (event.type)
         {
-            continue;
-        }
-
-        if (ch != '\n')
-        {
-            if (uart_line_index < sizeof(uart_line) - 1)
-            {
-                uart_line[uart_line_index++] = ch;
-            }
-            else
-            {
-                // Drop malformed long lines and resync at next newline.
-                uart_line_index = 0;
-            }
-            continue;
-        }
-
-        uart_line[uart_line_index] = '\0';
-        uart_line_index = 0;
-
-        uint8_t status = 0;
-        uint8_t data1 = 0;
-        uint8_t data2 = 0;
-        if (sscanf(uart_line, "%hhx %hhx %hhx", &status, &data1, &data2) != 3)
-        {
-            continue;
-        }
-
-        VoiceAllocator *va = sound_mgr->get_voice_allocator();
-
-        if ((status == 0x80) || (status == 0x90 && data2 == 0))
-        {
-            va->handle_note_off(data1);
-        }
-        else if (status == 0x90 && data2 != 0)
-        {
-            va->handle_note_on(data1, data2);
-        }
-        else if (status == 0xB0 && data1 == 0x40)
-        {
-            if (data2 >= 64)
-            {
-                va->handle_sustain_on();
-            }
-            else
-            {
-                va->handle_sustain_off();
-            }
+        case MidiEventType::NOTE_ON:
+            va->handle_note_on(event.data1, event.data2);
+            break;
+        case MidiEventType::NOTE_OFF:
+            va->handle_note_off(event.data1);
+            break;
+        case MidiEventType::SUSTAIN_ON:
+            va->handle_sustain_on();
+            break;
+        case MidiEventType::SUSTAIN_OFF:
+            va->handle_sustain_off();
+            break;
         }
     }
 }
@@ -208,31 +246,32 @@ int main()
                                &led_lfo_high_vcf, &led_lfo_low, &led_vco);
     SoundModuleManager sound_mgr(&voice_allocator, &panel_manager);
 
+    // Initialize MIDI event queue
+    queue_init(&midi_event_queue, sizeof(MidiEvent), 128);
+
     g_sound_mgr = &sound_mgr;
     multicore_launch_core1(core1_entry);
 
     uint16_t stream[STREAM_LENGTH];
+    absolute_time_t next_time = get_absolute_time();
+    
     while (true)
     {
-        handle_uart_midi(&sound_mgr);
+        // Process MIDI events from Core1 queue
+        process_midi_events(&sound_mgr);
 
-        if (g_update_flag)
+        // Update and transmit at fixed 20ms intervals
+        next_time = delayed_by_us(next_time, TIMER_PERIOD_US);
+        sleep_until(next_time);
+        
+        sound_mgr.update();
+        
+        // Send parameters for each unit sequentially with MIDI processing between units
+        for (uint8_t unit = 0; unit < 16; unit++)
         {
-            // Keep heavy SPI/ADC work out of alarm IRQ context.
-            g_update_flag = false;
-            sound_mgr.update();
-            g_send_flag = true;
-        }
-
-        if (g_send_flag)
-        {
-            // Send parameters for each unit sequentially
-            for (uint8_t unit = 0; unit < 16; unit++)
-            {
-                sound_mgr.serialize(unit, stream);
-                transmit_stream(stream);
-            }
-            g_send_flag = false;
+            sound_mgr.serialize(unit, stream);
+            transmit_stream(stream);
+            process_midi_events(&sound_mgr);  // Process MIDI events between transmissions
         }
     }
 
