@@ -51,6 +51,9 @@ void SoundUnit::update()
     vcf_eg_->update();
     vca_eg_->update();
     lfo_->update();
+    
+    // Apply VCA EG to gain
+    vca_->set_gain(vca_eg_->get_value());
 }
 
 void SoundUnit::serialize(uint16_t *buf) const

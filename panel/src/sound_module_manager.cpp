@@ -98,7 +98,7 @@ void SoundModuleManager::update()
 
         sound_units_[i]->get_vco()->set_wavetype1(panel_manager_->get_vco1_wavetype());
         sound_units_[i]->get_vco()->set_wavetype2(panel_manager_->get_vco2_wavetype());
-        sound_units_[i]->get_vco()->set_vco1_duty(panel_manager_->get_vco1_duty() / 1023.0f * 0.5f);
+        sound_units_[i]->get_vco()->set_vco1_duty(panel_manager_->get_vco1_duty() / 1023.0f);
         sound_units_[i]->get_vco()->set_vco2_offset(panel_manager_->get_vco2_offset() / 1023.0f);
         sound_units_[i]->get_vco()->set_mix(panel_manager_->get_vco_mix() / 1023.0f);
 
@@ -172,6 +172,9 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     encode_fixed(a1, buf[IDX_VCF_A1_HI], buf[IDX_VCF_A1_LO]);
     encode_fixed(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
 
-    buf[IDX_VCA_GAIN_L] = active ? 65535 : 0;
-    buf[IDX_VCA_GAIN_R] = active ? 65535 : 0;
+    // Apply VCA EG to gain (with velocity sensitivity)
+    const float eg_gain = sound_units_[unit_id]->get_vca()->get_gain();
+    const uint16_t gain_value = active ? static_cast<uint16_t>(eg_gain * 65535.0f) : 0;
+    buf[IDX_VCA_GAIN_L] = gain_value;
+    buf[IDX_VCA_GAIN_R] = gain_value;
 }

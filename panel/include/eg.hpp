@@ -19,5 +19,6 @@ public:
     void gate_on();
     void gate_off();
     void update();
-    float get_value() const { return value_; }
+    float get_value() const { return value_ * eg_int_; }
+    EGState get_state() const { return state_; }
 };

@@ -80,15 +80,9 @@ void VoiceAllocator::handle_note_off(uint8_t note)
     if (unit == 255)
         return;
 
-    if (sustain_pedal_)
-    {
-        unit_state_[unit] = SoundUnitState::SUSTAIN;
-    }
-    else
-    {
-        unit_state_[unit] = SoundUnitState::IDLE;
-        note_to_unit_[note] = 255;
-    }
+    // Always transition to SUSTAIN state
+    // Whether gate_off() is triggered depends on sustain_pedal_ state in update()
+    unit_state_[unit] = SoundUnitState::SUSTAIN;
 }
 
 void VoiceAllocator::handle_sustain_on()
@@ -99,13 +93,13 @@ void VoiceAllocator::handle_sustain_on()
 void VoiceAllocator::handle_sustain_off()
 {
     sustain_pedal_ = false;
+    // For all units in SUSTAIN state, trigger RELEASE phase immediately
+    // by forcing state transition detection in next update() cycle
     for (uint8_t u = 0; u < 16; u++)
     {
         if (unit_state_[u] == SoundUnitState::SUSTAIN)
         {
-            unit_state_[u] = SoundUnitState::IDLE;
-            uint8_t note = unit_to_note_[u];
-            note_to_unit_[note] = 255;
+            unit_state_prev_[u] = SoundUnitState::IDLE;  // Force state transition detection
         }
     }
 }
@@ -124,11 +118,33 @@ void VoiceAllocator::update(SoundUnit *units[16])
             {
                 units[u]->gate_on(unit_to_note_[u], unit_velocity_[u]);
             }
+            else if (current == SoundUnitState::SUSTAIN)
+            {
+                // Trigger RELEASE only if sustain pedal is not pressed
+                // AND EG is not already in RELEASE state
+                if (!sustain_pedal_ && units[u]->get_vca_eg()->get_state() != EGState::RELEASE)
+                {
+                    units[u]->gate_off();
+                }
+            }
             else if (current == SoundUnitState::IDLE)
             {
+                // Already released, ensure gate is off
                 units[u]->gate_off();
             }
             unit_state_prev_[u] = current;
+        }
+
+        // For SUSTAIN units, transition to IDLE when EG reaches IDLE state
+        if (current == SoundUnitState::SUSTAIN)
+        {
+            // Only check after state has been stable (wait at least one cycle)
+            if (previous == SoundUnitState::SUSTAIN && units[u]->get_vca_eg()->get_state() == EGState::IDLE)
+            {
+                unit_state_[u] = SoundUnitState::IDLE;
+                uint8_t note = unit_to_note_[u];
+                note_to_unit_[note] = 255;
+            }
         }
     }
 }
