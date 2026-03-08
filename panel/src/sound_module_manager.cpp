@@ -98,9 +98,18 @@ void SoundModuleManager::update()
 
         sound_units_[i]->get_vco()->set_wavetype1(panel_manager_->get_vco1_wavetype());
         sound_units_[i]->get_vco()->set_wavetype2(panel_manager_->get_vco2_wavetype());
-        sound_units_[i]->get_vco()->set_vco1_duty(panel_manager_->get_vco1_duty() / 1023.0f);
+        
+        // Apply LFO to VCO2 duty
+        float base_duty = panel_manager_->get_vco1_duty() / 1023.0f;
+        float duty_lfo = sound_units_[i]->get_lfo()->get_value(LFOTarget::VCO2_DUTY);
+        sound_units_[i]->get_vco()->set_vco1_duty(clampf(base_duty + duty_lfo * 0.5f, 0.0f, 1.0f));
+        
         sound_units_[i]->get_vco()->set_vco2_offset(panel_manager_->get_vco2_offset() / 1023.0f);
-        sound_units_[i]->get_vco()->set_mix(panel_manager_->get_vco_mix() / 1023.0f);
+        
+        // Apply LFO to VCO mix
+        float base_mix = panel_manager_->get_vco_mix() / 1023.0f;
+        float mix_lfo = sound_units_[i]->get_lfo()->get_value(LFOTarget::VCO_MIX);
+        sound_units_[i]->get_vco()->set_mix(clampf(base_mix + mix_lfo * 0.5f, 0.0f, 1.0f));
 
         sound_units_[i]->get_vcf()->set_cutoff_freq(panel_manager_->get_vcf_cutoff());
         sound_units_[i]->get_vcf()->set_resonance(panel_manager_->get_vcf_resonance() / 1023.0f);
@@ -117,7 +126,10 @@ void SoundModuleManager::update()
         // EG value is value_ * eg_int_ and is used as octave offset.
         float base_cutoff = panel_manager_->get_vcf_cutoff();
         float vcf_eg_value = sound_units_[i]->get_vcf_eg()->get_value();
-        sound_units_[i]->get_vcf()->set_cutoff_freq(base_cutoff * powf(2.0f, vcf_eg_value));
+        float vcf_lfo_value = sound_units_[i]->get_lfo()->get_value(LFOTarget::VCF_CUTOFF);
+        // LFO also modulates in octaves
+        float total_cutoff_mod = vcf_eg_value + vcf_lfo_value;
+        sound_units_[i]->get_vcf()->set_cutoff_freq(base_cutoff * powf(2.0f, total_cutoff_mod));
 
         float vca_a = panel_manager_->get_vca_attack() / 1023.0f;
         float vca_d = panel_manager_->get_vca_decay() / 1023.0f;
@@ -145,6 +157,10 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     {
         base_freq = 0.0f;
     }
+    
+    // Apply LFO to VCO1 pitch (vibrato)
+    float pitch_lfo = sound_units_[unit_id]->get_lfo()->get_value(LFOTarget::VCO1_PITCH);
+    base_freq *= std::pow(2.0f, pitch_lfo);
 
     const float tune_pos = (static_cast<float>(panel_manager_->get_vco2_offset()) - 512.0f) / 512.0f;
     const float vco2_ratio = std::pow(2.0f, std::pow(tune_pos, 3.0f));
@@ -181,8 +197,24 @@ void SoundModuleManager::serialize(uint8_t unit_id, uint16_t *buf)
     encode_fixed(a2, buf[IDX_VCF_A2_HI], buf[IDX_VCF_A2_LO]);
 
     // Apply VCA EG to gain (with velocity sensitivity)
-    const float eg_gain = clampf(sound_units_[unit_id]->get_vca()->get_gain(), 0.0f, 1.0f);
-    const uint16_t gain_value = active ? static_cast<uint16_t>(eg_gain * 65535.0f) : 0;
-    buf[IDX_VCA_GAIN_L] = gain_value;
-    buf[IDX_VCA_GAIN_R] = gain_value;
+    float eg_gain = clampf(sound_units_[unit_id]->get_vca()->get_gain(), 0.0f, 1.0f);
+    
+    // Apply LFO to gain (tremolo) or pan
+    float gain_lfo = sound_units_[unit_id]->get_lfo()->get_value(LFOTarget::VCA_GAIN);
+    float pan_lfo = sound_units_[unit_id]->get_lfo()->get_value(LFOTarget::VCA_PAN);
+    
+    // Tremolo: modulate gain multiplicatively
+    float modulated_gain = eg_gain * (1.0f + gain_lfo * 0.5f);
+    modulated_gain = clampf(modulated_gain, 0.0f, 1.0f);
+    
+    // Pan: -1 = full left, 0 = center, +1 = full right
+    // Linear crossfade pan law
+    float pan = clampf(pan_lfo, -1.0f, 1.0f);
+    float gain_l = modulated_gain * (1.0f - (pan + 1.0f) * 0.5f);
+    float gain_r = modulated_gain * ((pan + 1.0f) * 0.5f);
+    
+    const uint16_t gain_value_l = active ? static_cast<uint16_t>(clampf(gain_l, 0.0f, 1.0f) * 65535.0f) : 0;
+    const uint16_t gain_value_r = active ? static_cast<uint16_t>(clampf(gain_r, 0.0f, 1.0f) * 65535.0f) : 0;
+    buf[IDX_VCA_GAIN_L] = gain_value_l;
+    buf[IDX_VCA_GAIN_R] = gain_value_r;
 }

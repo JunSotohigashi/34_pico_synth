@@ -3,6 +3,7 @@
 #include <hardware/spi.h>
 #include <hardware/gpio.h>
 #include <hardware/timer.h>
+#include <hardware/clocks.h>
 #include <hardware/sync.h>
 #include <pico/multicore.h>
 #include <pico/util/queue.h>
@@ -183,6 +184,7 @@ void transmit_stream(uint16_t stream[STREAM_LENGTH])
 
 int main()
 {
+    set_sys_clock_khz(200000, true);
     stdio_init_all();
 
     uart_init(uart0, UART_BAUDRATE);
